@@ -8,6 +8,7 @@ import pyperclip  # Added for clipboard access
 import pyautogui  # Added for simulating key presses
 from pynput import keyboard  # Added for global hotkey listening
 import threading  # Added for running listener in a separate thread
+from screeninfo import get_monitors  # Added for multi-monitor support
 
 class TypoFixApp:
     def __init__(self, root):
@@ -144,52 +145,109 @@ class TypoFixApp:
     def _show_floating_correction_widget(self):
         if self.floating_widget and self.floating_widget.winfo_exists():
             self.floating_widget.destroy()
-            self.floating_widget_label = None  # Clear refs
+            self.floating_widget_label = None
             self.floating_widget_button = None
 
-        # Get mouse position
         mouse_x, mouse_y = pyautogui.position()
+        active_monitor = None
+        for m in get_monitors():
+            if m.x <= mouse_x < m.x + m.width and m.y <= mouse_y < m.y + m.height:
+                active_monitor = m
+                break
+        if active_monitor is None:
+            active_monitor = get_monitors()[0]
 
         self.floating_widget = tk.Toplevel(self.root)
-        self.floating_widget.overrideredirect(True)  # Frameless window
-        self.floating_widget.attributes("-topmost", True)  # Keep on top
+        self.floating_widget.overrideredirect(True)
+        self.floating_widget.attributes("-topmost", True)
 
-        # Basic styling and content
-        self.floating_widget.configure(background="lightgrey")
-        self.floating_widget_label = tk.Label(self.floating_widget, text="TypoFix", background="lightgrey", foreground="black", padx=5, pady=2)
-        self.floating_widget_label.pack(side=tk.LEFT, padx=(5,0))  # Add some padding for the label
+        canvas_width = 170  # Adjusted for more space
+        canvas_height = 40 # Adjusted
+        radius = 10
+        padding = 8 # General padding for content
+        bg_color = "lightgrey"
+        button_color = "#4CAF50"
+        font_family = "Arial"
+        font_size = 9
 
-        self.floating_widget_button = tk.Button(self.floating_widget, text="Fix & Paste", 
-                               command=self._perform_correction_from_widget,
-                               relief=tk.FLAT, background="#4CAF50", foreground="white", padx=5, pady=2, borderwidth=0, highlightthickness=0)
-        self.floating_widget_button.pack(side=tk.LEFT, padx=5, pady=3)
+        canvas = tk.Canvas(self.floating_widget, width=canvas_width, height=canvas_height,
+                           background=bg_color, # Explicitly set canvas background
+                           highlightthickness=0, bd=0)
+        canvas.pack()
 
-        # Adjust position slightly to be near cursor but not directly under it
-        # Position it slightly offset from the cursor
-        widget_width = 150  # Approximate width, adjust as needed
-        widget_height = 30  # Approximate height
+        def _create_rounded_rectangle(cv, x1, y1, x2, y2, r, **kwargs):
+            cv.create_arc(x1, y1, x1 + 2 * r, y1 + 2 * r,
+                          start=90, extent=90, smooth=True, **kwargs)
+            cv.create_arc(x2 - 2 * r, y1, x2, y1 + 2 * r,
+                          start=0, extent=90, smooth=True, **kwargs)
+            cv.create_arc(x1, y2 - 2 * r, x1 + 2 * r, y2,
+                          start=180, extent=90, smooth=True, **kwargs)
+            cv.create_arc(x2 - 2 * r, y2 - 2 * r, x2, y2,
+                          start=270, extent=90, smooth=True, **kwargs)
+            cv.create_rectangle(x1 + r, y1, x2 - r, y1 + r, **kwargs)
+            cv.create_rectangle(x1 + r, y2 - r, x2 - r, y2, **kwargs)
+            cv.create_rectangle(x1, y1 + r, x1 + r, y2 - r, **kwargs)
+            cv.create_rectangle(x2 - r, y1 + r, x2, y2 - r, **kwargs)
+            cv.create_rectangle(x1 + r, y1 + r, x2 - r, y2 - r, **kwargs)
+
+        _create_rounded_rectangle(canvas, 0, 0, canvas_width, canvas_height, radius, 
+                                  fill=bg_color, outline=bg_color)
+
+        self.floating_widget_label = tk.Label(canvas, text="TypoFix",  # Parent changed to canvas
+                                              background=bg_color, foreground="black",
+                                              font=(font_family, font_size))
+        self.floating_widget_label.update_idletasks()
+        label_req_width = self.floating_widget_label.winfo_reqwidth()
+        label_req_height = self.floating_widget_label.winfo_reqheight()
+
+        self.floating_widget_button = tk.Button(canvas, text="Fix & Paste",  # Parent changed to canvas
+                                                command=self._perform_correction_from_widget,
+                                                relief=tk.FLAT, background=button_color, foreground="white",
+                                                font=(font_family, font_size, "bold"),
+                                                padx=6, pady=0, # pady adjusted for vertical centering
+                                                borderwidth=0, highlightthickness=0, activebackground="#45a049")
+        self.floating_widget_button.update_idletasks()
         
-        # Attempt to keep widget on screen
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
+        # Calculate positions
+        content_total_height = max(label_req_height, button_req_height)
+        y_center_offset = (canvas_height - content_total_height) / 2
 
-        final_x = mouse_x + 15
-        final_y = mouse_y + 15
+        label_x = padding
+        label_y = y_center_offset
+        canvas.create_window(label_x, label_y, window=self.floating_widget_label, anchor=tk.NW)
 
-        if final_x + widget_width > screen_width:
-            final_x = screen_width - widget_width - 5  # 5px buffer
-        if final_y + widget_height > screen_height:
-            final_y = screen_height - widget_height - 5  # 5px buffer
-        if final_x < 0:
-            final_x = 5
-        if final_y < 0:
-            final_y = 5
+        button_x = label_x + label_req_width + padding # Spacing
+        button_y = y_center_offset 
+        # Adjust button y if its height is different to align baselines or centers
+        if label_req_height != button_req_height: # Basic vertical centering for button
+             button_y = (canvas_height - button_req_height) / 2
+        canvas.create_window(button_x, button_y, window=self.floating_widget_button, anchor=tk.NW)
+        
+        # Positioning the Toplevel window
+        screen_width = active_monitor.width
+        screen_height = active_monitor.height
+        screen_x_offset = active_monitor.x
+        screen_y_offset = active_monitor.y
+
+        relative_mouse_x = mouse_x - screen_x_offset
+        relative_mouse_y = mouse_y - screen_y_offset
+
+        final_x = screen_x_offset + relative_mouse_x + 15
+        final_y = screen_y_offset + relative_mouse_y + 15
+
+        if relative_mouse_x + 15 + canvas_width > screen_width:
+            final_x = screen_x_offset + screen_width - canvas_width - 5
+        if relative_mouse_y + 15 + canvas_height > screen_height:
+            final_y = screen_y_offset + screen_height - canvas_height - 5
+        
+        if final_x < screen_x_offset:
+            final_x = screen_x_offset + 5
+        if final_y < screen_y_offset:
+            final_y = screen_y_offset + 5
             
         self.floating_widget.geometry(f"+{final_x}+{final_y}")
         self.floating_widget.lift()
-        self.floating_widget.focus_force()  # Try to give it focus
-
-        # Bind Escape key to close the widget
+        self.floating_widget.focus_force()
         self.floating_widget.bind("<Escape>", lambda e: self._destroy_floating_widget())
 
     def _destroy_floating_widget(self):
@@ -199,6 +257,18 @@ class TypoFixApp:
         self.floating_widget_label = None
         self.floating_widget_button = None
         self.text_to_correct_for_widget = None  # Also clear text if widget is dismissed manually
+
+    def _update_widget_label_and_close(self, message, delay_seconds):
+        """Helper to update widget label, wait, and then destroy."""
+        if self.floating_widget and self.floating_widget.winfo_exists():
+            if self.floating_widget_label:
+                self.floating_widget_label.config(text=message)
+            self.floating_widget.update_idletasks()
+            # Use root.after to schedule the destruction, allowing UI to update
+            self.root.after(int(delay_seconds * 1000), self._destroy_floating_widget)
+        else:
+            # If widget somehow already gone or never created, ensure state is clean
+            self._destroy_floating_widget()
 
     def _perform_correction_from_widget(self):
         if not self.floating_widget or not self.floating_widget.winfo_exists():
@@ -215,75 +285,76 @@ class TypoFixApp:
         self.floating_widget.update_idletasks()
 
         original_text = self.text_to_correct_for_widget
-        corrected_text_to_paste = None
+        corrected_text_content = None # To store the text from API
 
+        # --- Step 1: Call API and Parse ---
         try:
             if not original_text:
                 print("Error: No text stored for correction.")
+                self._update_widget_label_and_close("No Text", 0.7)
                 return 
 
             print(f"Attempting to correct: '{original_text}'")
-            if self.api_key:
-                api_response = self._call_gemini_api(original_text)
-                if api_response:
-                    corrected_text = self._parse_gemini_response(api_response)
-                    if corrected_text:
-                        print(f"API Corrected Text: '{corrected_text}'")
-                        # Only proceed if correction is different and non-empty
-                        if corrected_text.strip() and corrected_text.strip().lower() != original_text.strip().lower():
-                            corrected_text_to_paste = corrected_text
-                        else:
-                            print("No change needed or API returned empty/same text.")
-                            if self.floating_widget_label:
-                                self.floating_widget_label.config(text="No Change")
-                                self.floating_widget.update_idletasks()
-                                time.sleep(0.7)  # Brief display
-                    else:
-                        print("Could not parse corrected text from API.")
-                        if self.floating_widget_label:
-                           self.floating_widget_label.config(text="Parse Err")
-                           self.floating_widget.update_idletasks()
-                           time.sleep(0.7)
-                else:
-                    print("API call failed or returned no response.")
-                    if self.floating_widget_label:
-                       self.floating_widget_label.config(text="API Err")
-                       self.floating_widget.update_idletasks()
-                       time.sleep(0.7)
-            else:
+            if not self.api_key:
                 print("API key not available for correction.")
-                if self.floating_widget_label:
-                   self.floating_widget_label.config(text="No Key")
-                   self.floating_widget.update_idletasks()
-                   time.sleep(0.7)
+                self._update_widget_label_and_close("No Key", 0.7)
+                return
 
-            if corrected_text_to_paste:
-                try:
-                    pyperclip.copy(corrected_text_to_paste)
-                    print("Corrected text copied to clipboard.")
-                    
-                    self.simulating_paste = True
-                    print("Simulating Ctrl+V (Paste)")
-                    time.sleep(0.05)  # Small delay for window focus to potentially revert
-                    pyautogui.hotkey('ctrl', 'v')
-                    time.sleep(0.1) 
-                    self.simulating_paste = False
-                    print("Paste simulation finished.")
-                except Exception as e:
-                    print(f"Error during copy/paste: {e}")
-                    messagebox.showerror("Paste Error", f"Could not paste text: {e}") 
-                    if self.floating_widget_label:
-                       self.floating_widget_label.config(text="Paste Err")
-                       self.floating_widget.update_idletasks()
-                       time.sleep(0.7)
-        finally:
-            self._destroy_floating_widget()  # Use the new unified destroy method
+            api_response = self._call_gemini_api(original_text)
+            if not api_response: # _call_gemini_api handles messagebox for its errors
+                print("API call failed or returned no response.")
+                self._update_widget_label_and_close("API Err", 0.7)
+                return
+
+            parsed_text = self._parse_gemini_response(api_response) # _parse_gemini_response handles messagebox
+            if not parsed_text:
+                print("Could not parse corrected text from API.")
+                self._update_widget_label_and_close("Parse Err", 0.7)
+                return
+            
+            corrected_text_content = parsed_text
+            print(f"API Corrected Text: '{corrected_text_content}'")
+
+        except Exception as e: # Catch any unexpected error during API/parsing stages
+            print(f"Unexpected error during correction processing: {e}")
+            self._update_widget_label_and_close("Internal Err", 0.7)
+            return
+
+        # --- Step 2: Decide if pasting, then act ---
+        if corrected_text_content and corrected_text_content.strip().lower() != original_text.strip().lower():
+            # Text has changed and is not empty, proceed with paste
+            self._destroy_floating_widget()  # Destroy widget *before* paste
+            time.sleep(0.15)  # Increased delay for OS to return focus to the previous app
+
+            try:
+                pyperclip.copy(corrected_text_content)
+                print("Corrected text copied to clipboard.")
+                
+                self.simulating_paste = True
+                print("Simulating Ctrl+V (Paste)")
+                pyautogui.hotkey('ctrl', 'v')
+                time.sleep(0.05) # Small delay after paste
+                self.simulating_paste = False
+                print("Paste simulation finished.")
+            except Exception as e:
+                print(f"Error during copy/paste: {e}")
+                # Widget is already destroyed, so we can only show a messagebox
+                messagebox.showerror("Paste Error", f"Could not paste text: {e}")
+        else:
+            # No change needed or API returned empty/same text as original
+            print("No change needed or API returned empty/same text.")
+            self._update_widget_label_and_close("No Change", 0.7)
 
     def _parse_gemini_response(self, response_json):
         """Parses the JSON response from Gemini API to extract corrected text."""
         try:
             corrected_text = response_json['candidates'][0]['content']['parts'][0]['text']
-            return corrected_text.strip()  # Remove leading/trailing whitespace
+            stripped_text = corrected_text.strip()  # Strip here
+            if not stripped_text:  # Check if the text is effectively empty after stripping
+                print("API returned empty or whitespace-only text.")
+                messagebox.showerror("API Response Error", "API returned empty or effectively empty text.")
+                return None 
+            return stripped_text  # Return the stripped text
         except (KeyError, IndexError, TypeError) as e:
             error_msg = f"Error parsing Gemini API response: {e}. Expected structure not found."
             print(error_msg)
@@ -299,7 +370,8 @@ class TypoFixApp:
 
         api_url = f"{self.gemini_api_base_url}?key={self.api_key}"
         
-        prompt = f"Correct the following text for typos: \"{text_to_correct}\""
+        # Modified prompt to ask for original text if no typos are found
+        prompt = f"Correct the following text for typos. If no typos are found, return the original text verbatim. Text: \"{text_to_correct}\""
         
         payload = {
             "contents": [{
