@@ -92,7 +92,7 @@ Community leaders will follow these Community Impact Guidelines in determining t
 
 If you have questions about this Code of Conduct or need clarification on any points:
 
-- 📧 Email us at **[your-email@domain.com]**
+- 📧 Email us at **contact@typo-fix.com**
 - 💬 Open a discussion on GitHub
 - 📋 Create an issue with the "question" label
 
