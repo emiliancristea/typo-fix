@@ -8,6 +8,8 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
+import hashlib
+import datetime
 
 def create_spec_file():
     """Create PyInstaller spec file with proper configuration"""
@@ -378,6 +380,9 @@ def build_executable():
                 exe_size = os.path.getsize(exe_path) / (1024 * 1024)
                 print(f"📄 Executable: TypoFix.exe ({exe_size:.1f} MB)")
                 print("✅ Single-file executable created - no external dependencies needed!")
+                
+                # Generate checksums for verification
+                generate_checksums(exe_path)
             
             return True
         else:
@@ -388,6 +393,114 @@ def build_executable():
     except Exception as e:
         print(f"❌ Build error: {e}")
         return False
+
+def generate_checksums(exe_path):
+    """Generate checksums for the built executable"""
+    
+    print("\n🔒 Generating checksums for verification...")
+    
+    try:
+        # Calculate hashes
+        sha256_hash = hashlib.sha256()
+        md5_hash = hashlib.md5()
+        
+        with open(exe_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(chunk)
+                md5_hash.update(chunk)
+        
+        sha256 = sha256_hash.hexdigest()
+        md5 = md5_hash.hexdigest()
+        
+        # Get file info
+        file_size = os.path.getsize(exe_path)
+        file_size_mb = file_size / (1024 * 1024)
+        build_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Create checksum file content
+        checksum_content = f"""# TypoFix v1.2.0 - File Verification
+
+## Build Information
+- **Filename**: TypoFix.exe
+- **File Size**: {file_size_mb:.1f} MB ({file_size:,} bytes)
+- **Build Date**: {build_date}
+- **Build Machine**: {os.environ.get('COMPUTERNAME', 'Unknown')}
+
+## File Checksums
+
+### SHA256
+```
+{sha256}
+```
+
+### MD5
+```
+{md5}
+```
+
+## Verification Instructions
+
+### Windows PowerShell
+```powershell
+# Verify SHA256
+Get-FileHash TypoFix.exe -Algorithm SHA256
+
+# Verify MD5  
+Get-FileHash TypoFix.exe -Algorithm MD5
+```
+
+### Command Prompt
+```cmd
+# Verify SHA256
+certutil -hashfile TypoFix.exe SHA256
+
+# Verify MD5
+certutil -hashfile TypoFix.exe MD5
+```
+
+### Expected Results
+The calculated hashes should **exactly match** the values above.
+
+❌ **If hashes don't match:**
+- File may be corrupted during download
+- File may have been modified/tampered with  
+- Downloaded from unofficial source
+
+✅ **Solution:** Re-download from official GitHub releases only.
+
+## Release Notes
+
+This build includes:
+- ✅ Embedded Google Gemini API key for immediate use
+- ✅ Complete standalone executable (no dependencies)
+- ✅ Global hotkey support (Ctrl+C)
+- ✅ Multi-language text correction
+- ✅ Smart widget positioning
+- ✅ System tray integration
+- ✅ Modern glass-morphism UI
+
+For full changelog, see: https://github.com/emiliancristea/typo-fix/releases
+"""
+        
+        # Save checksum file in dist directory
+        checksum_file = os.path.join('dist', 'TypoFix_checksums.txt')
+        with open(checksum_file, 'w', encoding='utf-8') as f:
+            f.write(checksum_content)
+        
+        # Also save in root for releases
+        root_checksum_file = 'TypoFix_checksums.txt'
+        with open(root_checksum_file, 'w', encoding='utf-8') as f:
+            f.write(checksum_content)
+        
+        print("✅ Checksums generated successfully!")
+        print(f"📄 Checksum file: {checksum_file}")
+        print(f"📄 Release checksum: {root_checksum_file}")
+        print("\n🔒 File verification hashes:")
+        print(f"   SHA256: {sha256}")
+        print(f"   MD5:    {md5}")
+        
+    except Exception as e:
+        print(f"❌ Failed to generate checksums: {e}")
 
 def main():
     """Main build process"""

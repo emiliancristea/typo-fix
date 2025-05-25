@@ -41,6 +41,51 @@
 
 ---
 
+## 🛡️ Security & Download Warnings
+
+### Browser Download Warnings
+When downloading `TypoFix.exe`, your browser may show warnings like:
+- **Chrome**: "This file is dangerous" 
+- **Edge**: "This file is not commonly downloaded"
+- **Firefox**: "This file may harm your computer"
+
+**This is normal and expected behavior** for unsigned executable files.
+
+### Why These Warnings Appear
+- TypoFix is **not digitally signed** with a code signing certificate
+- Browsers flag unsigned `.exe` files as potentially dangerous
+- This is a security feature to protect users from malware
+
+### How to Download Safely
+1. **Keep the download**: Click "Keep" or "Keep anyway" in your browser
+2. **Verify source**: Only download from [official GitHub releases](https://github.com/emiliancristea/typo-fix/releases)
+3. **Check file size**: Verify the file is approximately 19.5 MB
+4. **Scan if desired**: Use your antivirus software to scan the file
+
+### Windows SmartScreen Warning
+After downloading, Windows may also show:
+> "Windows protected your PC - Microsoft Defender SmartScreen prevented an unrecognized app from starting"
+
+**To run TypoFix:**
+1. Click **"More info"**
+2. Click **"Run anyway"**
+3. TypoFix will start normally
+
+### Why Not Code Sign?
+Code signing certificates cost $200-400/year and require business verification. For a free, open-source tool, this cost is prohibitive. However, you can verify TypoFix's safety by:
+- ✅ **Open source code**: All code is publicly available for review
+- ✅ **Community trust**: Growing user base and positive feedback
+- ✅ **No malicious behavior**: Transparent functionality and operation
+- ✅ **Minimal permissions**: No admin rights or system modifications required
+
+### 📚 Detailed Security Information
+For comprehensive information about download security warnings and verification:
+- 📖 **[Download Security Guide](DOWNLOAD_SECURITY.md)** - Detailed browser-specific instructions
+- 🔒 **[Security Policy](.github/SECURITY.md)** - Full security documentation
+- 🛡️ **[File Verification](generate_checksums.py)** - Script to verify download integrity
+
+---
+
 ## 🚀 Installation
 
 ### Option 1: Download Executable (Recommended)

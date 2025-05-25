@@ -103,3 +103,7 @@ tmp/
 *.pkg
 *.deb
 *.rpm
+
+# Allow checksum files
+!*_checksums.txt
+!checksums.txt

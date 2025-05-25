@@ -61,6 +61,38 @@ cd typo-fix
 # Find executable in releases or build from source
 ```
 
+### ⚠️ **Browser Download Warnings**
+
+**Important**: Your browser will likely show security warnings when downloading `TypoFix.exe`.
+
+#### Chrome Browser Warning
+Chrome may show: **"This file is dangerous"** with options to delete or keep the file.
+
+**Solution:**
+1. Click the **"Keep"** button (may be hidden in a dropdown)
+2. If you see "Delete from history", click the **"^"** arrow to see more options
+3. Select **"Keep anyway"** or **"Keep download"**
+
+#### Edge Browser Warning  
+Edge may show: **"This file is not commonly downloaded and may be dangerous"**
+
+**Solution:**
+1. Click **"Keep"**
+2. If prompted again, click **"Keep anyway"**
+
+#### Firefox Browser Warning
+Firefox may show: **"This file may harm your computer"**
+
+**Solution:**
+1. Click **"Keep"** or **"Save anyway"**
+2. Allow the download to complete
+
+#### Why These Warnings Occur
+- TypoFix is **not digitally signed** (costs $200-400/year)
+- Browsers protect users by flagging unsigned executables
+- **This is completely normal** for open-source software
+- The file is **safe** - all code is publicly available for review
+
 ### 🏃‍♂️ **First Run**
 
 #### Windows Security Warning
