@@ -1,0 +1,62 @@
+# TypoFix v1.2.0 - File Verification
+
+## Build Information
+- **Filename**: TypoFix.exe
+- **File Size**: 18.0 MB (18,905,971 bytes)
+- **Build Date**: 2025-05-25 05:31:06
+- **Build Machine**: HAITO
+
+## File Checksums
+
+### SHA256
+```
+84513696191e1bbdb8256ca2391557050852e40aa2056dbe4864cad39e7a02f9
+```
+
+### MD5
+```
+d5c689716bb7d66dc0e0b1ced6ce2173
+```
+
+## Verification Instructions
+
+### Windows PowerShell
+```powershell
+# Verify SHA256
+Get-FileHash TypoFix.exe -Algorithm SHA256
+
+# Verify MD5  
+Get-FileHash TypoFix.exe -Algorithm MD5
+```
+
+### Command Prompt
+```cmd
+# Verify SHA256
+certutil -hashfile TypoFix.exe SHA256
+
+# Verify MD5
+certutil -hashfile TypoFix.exe MD5
+```
+
+### Expected Results
+The calculated hashes should **exactly match** the values above.
+
+❌ **If hashes don't match:**
+- File may be corrupted during download
+- File may have been modified/tampered with  
+- Downloaded from unofficial source
+
+✅ **Solution:** Re-download from official GitHub releases only.
+
+## Release Notes
+
+This build includes:
+- ✅ Embedded Google Gemini API key for immediate use
+- ✅ Complete standalone executable (no dependencies)
+- ✅ Global hotkey support (Ctrl+C)
+- ✅ Multi-language text correction
+- ✅ Smart widget positioning
+- ✅ System tray integration
+- ✅ Modern glass-morphism UI
+
+For full changelog, see: https://github.com/emiliancristea/typo-fix/releases
