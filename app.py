@@ -631,7 +631,7 @@ class TypoFixApp:
     def _detect_language(self, text):
         """Detect the language of the input text using Gemini API"""
         print(f"DEBUG: Detecting language for text: '{text[:50]}...'")
-        
+
         api_url = f"{self.gemini_api_base_url}?key={self.api_key}"
         
         prompt = f"""Detect the language of the following text and respond with ONLY the language name in English (e.g., "Romanian", "English", "Spanish", "French", etc.).
