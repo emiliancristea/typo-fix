@@ -6,7 +6,7 @@ Thank you for your interest in contributing to TypoFix! This document provides g
 
 ### Reporting Bugs
 
-Before creating bug reports, please check the [existing issues](https://github.com/yourusername/typo-fix/issues) to avoid duplicates.
+Before creating bug reports, please check the [existing issues](https://github.com/emiliancristea/typo-fix/issues) to avoid duplicates.
 
 **When submitting a bug report, please include:**
 - Detailed description of the issue
@@ -47,7 +47,7 @@ We welcome feature suggestions! Please:
 ### Setup Instructions
 ```bash
 # Clone your fork
-git clone https://github.com/yourusername/typo-fix.git
+git clone https://github.com/emiliancristea/typo-fix.git
 cd typo-fix
 
 # Create virtual environment
@@ -200,8 +200,8 @@ typo-fix/
 
 ## 📧 Getting Help
 
-- **Questions**: Open a [discussion](https://github.com/yourusername/typo-fix/discussions)
-- **Bugs**: Create an [issue](https://github.com/yourusername/typo-fix/issues)
+- **Questions**: Open a [discussion](https://github.com/emiliancristea/typo-fix/discussions)
+- **Bugs**: Create an [issue](https://github.com/emiliancristea/typo-fix/issues)
 - **Features**: Open a feature request issue
 
 ## 📄 License

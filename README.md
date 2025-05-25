@@ -44,14 +44,14 @@
 ## 🚀 Installation
 
 ### Option 1: Download Executable (Recommended)
-1. Go to [Releases](https://github.com/yourusername/typo-fix/releases)
+1. Go to [Releases](https://github.com/emiliancristea/typo-fix/releases)
 2. Download the latest `TypoFix.exe`
 3. Run the executable - no installation required!
 
 ### Option 2: Run from Source
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/typo-fix.git
+git clone https://github.com/emiliancristea/typo-fix.git
 cd typo-fix
 
 # Create virtual environment
@@ -238,6 +238,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for better writing**
 
-[⭐ Star this project](https://github.com/yourusername/typo-fix) if you find it useful!
+[⭐ Star this project](https://github.com/emiliancristea/typo-fix) if you find it useful!
 
 </div>
