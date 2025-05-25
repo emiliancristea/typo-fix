@@ -1,0 +1,424 @@
+#!/usr/bin/env python3
+"""
+Build script for TypoFix - Creates a standalone executable
+"""
+
+import os
+import sys
+import subprocess
+import shutil
+from pathlib import Path
+
+def create_spec_file():
+    """Create PyInstaller spec file with proper configuration"""
+    
+    spec_content = '''
+# -*- mode: python ; coding: utf-8 -*-
+
+block_cipher = None
+
+a = Analysis(
+    ['app.py'],
+    pathex=[],
+    binaries=[],
+    datas=[
+        # No external data files - everything embedded
+    ],
+    hiddenimports=[
+        'pystray',
+        'pystray._win32',
+        'PIL',
+        'PIL.Image',
+        'PIL.ImageDraw',
+        'PIL.ImageFont',
+        'pynput.keyboard._win32',
+        'pynput.mouse._win32', 
+        'win32gui',
+        'win32con',
+        'win32api',
+        'win32process',
+        'requests',
+        'pyperclip',
+        'pyautogui',
+        'screeninfo',
+        'tkinter',
+        'tkinter.ttk',
+        'base64',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        'matplotlib',
+        'numpy', 
+        'scipy',
+        'pandas',
+        'cv2',
+        'tensorflow',
+        'torch',
+        'jupyter',
+        'IPython',
+        'notebook',
+        'plotly',
+        'bokeh',
+        'seaborn',
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='TypoFix',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,  # No console window
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='icon.ico',
+    version='version_info.txt',
+)
+'''
+    
+    with open('TypoFix.spec', 'w') as f:
+        f.write(spec_content.strip())
+    
+    print("✅ Created TypoFix.spec file")
+
+def create_version_info():
+    """Create version information file"""
+    
+    version_info = '''
+# UTF-8
+#
+# For more details about fixed file info 'ffi' see:
+# http://msdn.microsoft.com/en-us/library/ms646997.aspx
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1,0,0,0),
+    prodvers=(1,0,0,0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+    ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        u'040904B0',
+        [StringStruct(u'CompanyName', u'TypoFix'),
+        StringStruct(u'FileDescription', u'AI-Powered Typo Correction Tool'),
+        StringStruct(u'FileVersion', u'1.0.0.0'),
+        StringStruct(u'InternalName', u'TypoFix'),
+        StringStruct(u'LegalCopyright', u'Copyright (C) 2025'),
+        StringStruct(u'OriginalFilename', u'TypoFix.exe'),
+        StringStruct(u'ProductName', u'TypoFix - AI Typo Corrector'),
+        StringStruct(u'ProductVersion', u'1.0.0.0')])
+      ]), 
+    VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
+  ]
+)
+'''
+    
+    with open('version_info.txt', 'w', encoding='utf-8') as f:
+        f.write(version_info.strip())
+    
+    print("✅ Created version_info.txt")
+
+def create_icon():
+    """Create a simple icon for the application"""
+    
+    try:
+        # Try to create icon with PIL
+        from PIL import Image, ImageDraw, ImageFont
+        
+        # Create a simple icon
+        size = (64, 64)
+        img = Image.new('RGBA', size, (76, 175, 80, 255))  # Green background
+        draw = ImageDraw.Draw(img)
+        
+        # Draw a simple "T" for TypoFix
+        try:
+            font = ImageFont.truetype("arial.ttf", 40)
+        except:
+            font = ImageFont.load_default()
+        
+        # Calculate text position to center it
+        text = "T"
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        x = (size[0] - text_width) // 2
+        y = (size[1] - text_height) // 2
+        
+        # Draw white "T"
+        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+        
+        # Save as ICO
+        if hasattr(Image, 'Resampling'):
+            resample = Image.Resampling.LANCZOS
+        else:
+            resample = Image.LANCZOS
+        
+        # Create multiple sizes for ICO
+        sizes = [(16, 16), (32, 32), (48, 48), (64, 64)]
+        images = []
+        for ico_size in sizes:
+            resized = img.resize(ico_size, resample)
+            images.append(resized)
+        
+        images[0].save('icon.ico', format='ICO', sizes=[s for s in sizes])
+        print("✅ Created icon.ico")
+        
+    except ImportError:
+        # Create a placeholder file for PyInstaller
+        print("⚠️ PIL not available, creating placeholder icon")
+        with open('icon.ico', 'wb') as f:
+            # Write a minimal ICO file header (will be ignored by PyInstaller if invalid)
+            f.write(b'\x00\x00\x01\x00')  # ICO header
+        print("✅ Created placeholder icon.ico")
+        
+    except Exception as e:
+        print(f"⚠️ Could not create icon: {e}")
+        # Create empty file so PyInstaller doesn't fail
+        with open('icon.ico', 'w') as f:
+            f.write('')
+        print("✅ Created empty icon.ico")
+
+def create_installer_script():
+    """Create a simple installer script"""
+    
+    installer_content = '''
+@echo off
+echo ===================================
+echo     TypoFix Installation Script
+echo ===================================
+echo.
+
+REM Check if running as administrator
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    echo Running as administrator...
+) else (
+    echo This installer requires administrator privileges.
+    echo Please right-click and "Run as administrator"
+    pause
+    exit /b 1
+)
+
+echo Installing TypoFix...
+
+REM Create installation directory
+set INSTALL_DIR="%ProgramFiles%\\TypoFix"
+if not exist %INSTALL_DIR% mkdir %INSTALL_DIR%
+
+REM Copy files
+copy "TypoFix.exe" %INSTALL_DIR%
+copy "README.txt" %INSTALL_DIR% 2>nul
+
+REM Create desktop shortcut
+set DESKTOP="%USERPROFILE%\\Desktop"
+echo Creating desktop shortcut...
+powershell "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\\TypoFix.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\\TypoFix.exe'; $Shortcut.IconLocation = '%INSTALL_DIR%\\TypoFix.exe'; $Shortcut.Description = 'AI-Powered Typo Correction Tool'; $Shortcut.Save()"
+
+REM Create start menu entry
+set STARTMENU="%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs"
+powershell "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%STARTMENU%\\TypoFix.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\\TypoFix.exe'; $Shortcut.IconLocation = '%INSTALL_DIR%\\TypoFix.exe'; $Shortcut.Description = 'AI-Powered Typo Correction Tool'; $Shortcut.Save()"
+
+echo.
+echo ===================================
+echo    Installation Complete!
+echo ===================================
+echo.
+echo TypoFix has been installed to: %INSTALL_DIR%
+echo Desktop shortcut created.
+echo Start menu entry created.
+echo.
+echo IMPORTANT: You need to set up your Gemini API key:
+echo 1. Get an API key from: https://makersuite.google.com/app/apikey
+echo 2. Create a .env file in %INSTALL_DIR% with:
+echo    GEMINI_API_KEY=your_api_key_here
+echo.
+echo Press any key to finish...
+pause >nul
+'''
+    
+    with open('install.bat', 'w') as f:
+        f.write(installer_content.strip())
+    
+    print("✅ Created install.bat")
+
+def create_readme():
+    """Create README for distribution"""
+    
+    readme_content = '''
+# TypoFix - AI-Powered Typo Correction Tool
+
+## What is TypoFix?
+
+TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you copy. Simply highlight text anywhere on your computer, press Ctrl+C, and TypoFix will offer to fix any typos using advanced AI technology.
+
+## Features
+
+* Global Hotkey Detection: Works in any application - browsers, documents, emails, chat apps
+* AI-Powered Corrections: Uses Google's Gemini AI for intelligent typo detection and correction
+* Smart Positioning: Widget appears near your selected text
+* Instant Correction: One-click to fix and paste corrected text
+* Beautiful UI: Modern, transparent floating buttons
+* Privacy-Focused: Text is only sent to AI when you choose to correct it
+
+## Quick Start
+
+1. Install: Run the installer or place TypoFix.exe in your desired location
+2. Setup API Key: Get a free API key from https://makersuite.google.com/app/apikey
+3. Configure: Create a .env file next to TypoFix.exe with:
+   GEMINI_API_KEY=your_api_key_here
+4. Run: Launch TypoFix.exe (it runs in the background)
+5. Use: Highlight text anywhere, press Ctrl+C, click "Fix" to correct typos!
+
+## How to Use
+
+1. Highlight text in any application (browser, Word, email, etc.)
+2. Press Ctrl+C to copy the text
+3. TypoFix widget appears with two buttons near your selection
+4. Click "Fix" to correct typos and automatically paste the corrected text
+5. Click "Cancel" to dismiss without changes
+
+## System Requirements
+
+- Windows 10 or later
+- Internet connection (for AI corrections)
+- Gemini API key (free from Google)
+
+## Getting Your API Key
+
+1. Visit: https://makersuite.google.com/app/apikey
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy the key and add it to your .env file
+
+## Troubleshooting
+
+Widget doesn't appear?
+- Make sure TypoFix.exe is running (check system tray)
+- Try running as administrator
+- Check if antivirus is blocking the app
+
+API errors?
+- Verify your API key is correct in the .env file
+- Check your internet connection
+- Ensure you have Gemini API quota available
+
+Can't install?
+- Run install.bat as administrator
+- Or manually copy TypoFix.exe to any folder and run it
+
+## Support
+
+For issues or questions, please check the project documentation or contact support.
+
+## Version 1.0.0
+
+Initial release with core typo correction functionality.
+'''
+    
+    with open('README.txt', 'w', encoding='utf-8') as f:
+        f.write(readme_content.strip())
+    
+    print("✅ Created README.txt")
+
+def build_executable():
+    """Build the executable using PyInstaller"""
+    
+    print("\n🔨 Building standalone executable...")
+    
+    try:
+        # Clean previous builds
+        if os.path.exists('dist'):
+            shutil.rmtree('dist')
+        if os.path.exists('build'):
+            shutil.rmtree('build')
+        
+        # Build with PyInstaller
+        cmd = [
+            'pyinstaller',
+            '--clean',
+            '--noconfirm',
+            'TypoFix.spec'
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("✅ Standalone executable built successfully!")
+            print(f"📁 Output location: {os.path.abspath('dist')}")
+            
+            # Check if the executable exists
+            exe_path = os.path.join('dist', 'TypoFix.exe')
+            if os.path.exists(exe_path):
+                exe_size = os.path.getsize(exe_path) / (1024 * 1024)
+                print(f"📄 Executable: TypoFix.exe ({exe_size:.1f} MB)")
+                print("✅ Single-file executable created - no external dependencies needed!")
+            
+            return True
+        else:
+            print("❌ Build failed!")
+            print(f"Error: {result.stderr}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Build error: {e}")
+        return False
+
+def main():
+    """Main build process"""
+    
+    print("🚀 TypoFix Standalone Executable Builder")
+    print("=" * 45)
+    
+    # Create all necessary files
+    create_spec_file()
+    create_version_info()
+    create_icon()
+    
+    print("\n📦 Building standalone executable...")
+    
+    if build_executable():
+        print("\n🎉 Build completed successfully!")
+        print("\n📋 Standalone executable created:")
+        print("   📁 dist/TypoFix.exe - Complete application in a single file")
+        print("\n✨ Features of this executable:")
+        print("   • No external dependencies required")
+        print("   • API key configuration built-in")
+        print("   • Completely portable")
+        print("   • Registry-based settings storage")
+        print("\n💡 Distribution:")
+        print("   • Simply share dist/TypoFix.exe")
+        print("   • Users just run the .exe file")
+        print("   • First-run setup guides them through API key configuration")
+        print("   • No installation required")
+        
+    else:
+        print("\n❌ Build failed. Check the error messages above.")
+
+if __name__ == "__main__":
+    main() 

@@ -1,122 +1,356 @@
 import tkinter as tk
-from tkinter import Text, messagebox
+from tkinter import Text, messagebox, ttk, simpledialog
 import os
 import requests
-from dotenv import load_dotenv
 import time  # Added for delays
 import pyperclip  # Added for clipboard access
 import pyautogui  # Added for simulating key presses
 from pynput import keyboard  # Added for global hotkey listening
 import threading  # Added for running listener in a separate thread
 from screeninfo import get_monitors  # Added for multi-monitor support
+import win32gui
+import win32con
+from ctypes import windll, wintypes, byref
+import ctypes
+import base64
+import pystray
+from PIL import Image
+
+class RoundedButton:
+    def __init__(self, parent, text, command, bg_color, hover_color, text_color='white', width=80, height=35, corner_radius=8):
+        self.parent = parent
+        self.text = text
+        self.command = command
+        self.bg_color = bg_color
+        self.hover_color = hover_color
+        self.text_color = text_color
+        self.width = width
+        self.height = height
+        self.corner_radius = corner_radius
+        self.is_hovered = False
+        
+        # Create high-DPI canvas for better quality
+        scale_factor = 2  # 2x resolution for better quality
+        self.scale = scale_factor
+        canvas_width = (width + 4) * scale_factor
+        canvas_height = (height + 4) * scale_factor
+        
+        self.canvas = tk.Canvas(parent, width=width + 4, height=height + 4, 
+                               highlightthickness=0, relief='flat', borderwidth=0)
+        # Try to match parent's transparent background
+        try:
+            self.canvas.configure(bg='black')
+        except:
+            self.canvas.configure(bg=parent.cget('bg'))
+        
+        # Draw the button
+        self.draw_button()
+        
+        # Bind events
+        self.canvas.bind('<Button-1>', self.on_click)
+        self.canvas.bind('<Enter>', self.on_enter)
+        self.canvas.bind('<Leave>', self.on_leave)
+        
+    def draw_button(self):
+        self.canvas.delete("all")
+        
+        # Choose color based on hover state
+        current_color = self.hover_color if self.is_hovered else self.bg_color
+        
+        # Button coordinates (leaving space for shadow)
+        x1, y1 = 2, 2
+        x2, y2 = self.width, self.height
+        r = self.corner_radius
+        
+        # Draw shadow only when not hovered - make it more subtle
+        if not self.is_hovered:
+            shadow_offset = 1
+            sx1, sy1 = x1 + shadow_offset, y1 + shadow_offset
+            sx2, sy2 = x2 + shadow_offset, y2 + shadow_offset
+            shadow_color = '#000000'  # Pure black for better contrast
+            
+            # Shadow rectangles
+            self.canvas.create_rectangle(sx1 + r, sy1, sx2 - r, sy2, fill=shadow_color, outline='', width=0)
+            self.canvas.create_rectangle(sx1, sy1 + r, sx2, sy2 - r, fill=shadow_color, outline='', width=0)
+            
+            # Shadow corners - use smaller radius for tighter shadow
+            shadow_r = r - 1
+            self.canvas.create_oval(sx1, sy1, sx1 + 2*shadow_r, sy1 + 2*shadow_r, fill=shadow_color, outline='', width=0)
+            self.canvas.create_oval(sx2 - 2*shadow_r, sy1, sx2, sy1 + 2*shadow_r, fill=shadow_color, outline='', width=0)
+            self.canvas.create_oval(sx1, sy2 - 2*shadow_r, sx1 + 2*shadow_r, sy2, fill=shadow_color, outline='', width=0)
+            self.canvas.create_oval(sx2 - 2*shadow_r, sy2 - 2*shadow_r, sx2, sy2, fill=shadow_color, outline='', width=0)
+        
+        # Draw main button with anti-aliasing effect using multiple layers
+        # Base layer
+        self.canvas.create_rectangle(x1 + r, y1, x2 - r, y2, fill=current_color, outline='', width=0)
+        self.canvas.create_rectangle(x1, y1 + r, x2, y2 - r, fill=current_color, outline='', width=0)
+        
+        # Perfect rounded corners using ovals
+        self.canvas.create_oval(x1, y1, x1 + 2*r, y1 + 2*r, fill=current_color, outline='', width=0)
+        self.canvas.create_oval(x2 - 2*r, y1, x2, y1 + 2*r, fill=current_color, outline='', width=0)
+        self.canvas.create_oval(x1, y2 - 2*r, x1 + 2*r, y2, fill=current_color, outline='', width=0)
+        self.canvas.create_oval(x2 - 2*r, y2 - 2*r, x2, y2, fill=current_color, outline='', width=0)
+        
+        # Add subtle border for definition
+        border_color = self._darken_color(current_color, 0.2)
+        border_width = 1
+        
+        # Border rectangles
+        self.canvas.create_rectangle(x1 + r, y1, x2 - r, y1 + border_width, fill=border_color, outline='')
+        self.canvas.create_rectangle(x1 + r, y2 - border_width, x2 - r, y2, fill=border_color, outline='')
+        self.canvas.create_rectangle(x1, y1 + r, x1 + border_width, y2 - r, fill=border_color, outline='')
+        self.canvas.create_rectangle(x2 - border_width, y1 + r, x2, y2 - r, fill=border_color, outline='')
+        
+        # Add text with better positioning
+        text_x = (x1 + x2) // 2
+        text_y = (y1 + y2) // 2
+        
+        # Use better font with anti-aliasing
+        self.canvas.create_text(text_x, text_y, text=self.text, 
+                               fill=self.text_color, font=('Segoe UI', 9, 'bold'), anchor='center')
+    
+    def _darken_color(self, color, factor):
+        """Darken a hex color by a given factor"""
+        if color.startswith('#'):
+            color = color[1:]
+        
+        r = int(color[0:2], 16)
+        g = int(color[2:4], 16)
+        b = int(color[4:6], 16)
+        
+        r = max(0, int(r * (1 - factor)))
+        g = max(0, int(g * (1 - factor)))
+        b = max(0, int(b * (1 - factor)))
+        
+        return f"#{r:02x}{g:02x}{b:02x}"
+    
+    def on_click(self, event):
+        if self.command:
+            self.command()
+    
+    def on_enter(self, event):
+        self.is_hovered = True
+        self.draw_button()
+        self.canvas.configure(cursor='hand2')
+    
+    def on_leave(self, event):
+        self.is_hovered = False
+        self.draw_button()
+        self.canvas.configure(cursor='')
+    
+    def pack(self, **kwargs):
+        self.canvas.pack(**kwargs)
 
 class TypoFixApp:
     def __init__(self, root):
         self.root = root
-        root.title("TypoFix Listener")  # Changed title
+        root.title("TypoFix")
 
-        # Load API Key
-        load_dotenv()
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        # Embedded API Key (encoded for basic obfuscation)
+        self.api_key = self.get_embedded_api_key()
 
         if not self.api_key:
-            print("CRITICAL: GEMINI_API_KEY not found. Please set it in your .env file.")
+            print("ERROR: Could not initialize API key.")
+            messagebox.showerror("Error", "Failed to initialize TypoFix. Please try running as administrator.")
+            self.root.quit()
+            return
         else:
-            print("Gemini API Key loaded successfully.")
+            print("TypoFix initialized successfully.")
 
-        # Hide the main window for now, as interaction is via hotkey
+        # Hide the main window
         root.withdraw()
 
         # API Configuration
         self.gemini_api_base_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
-        self.correction_display_window = None  # For the Toplevel window displaying correction
-
+        
         # --- Widget and State Management ---
         self.floating_widget = None
         self.text_to_correct_for_widget = None
-        self.simulating_paste = False  # Flag to prevent hotkey re-trigger during paste
-        self.floating_widget_label = None
-        self.floating_widget_button = None
+        self.simulating_paste = False
+        self.selection_rect = None
+
+        # --- System Tray Setup ---
+        self.setup_system_tray()
 
         # --- Hotkey Setup ---
-        self.hotkey_combination = {keyboard.Key.ctrl, keyboard.KeyCode.from_char('c')} # Changed to Ctrl+C
+        self.hotkey_combination = {keyboard.Key.ctrl, keyboard.KeyCode.from_char('c')}
         self.current_hotkey_keys = set()
         self.start_hotkey_listener()
-        print(f"Hotkey listener started for Ctrl+C. Press the hotkey after highlighting text in any app.")
+        print(f"TypoFix is ready! Press Ctrl+C after highlighting text to correct typos or improve clarity.")
 
-    def _normalize_key(self, key):
-        """Normalizes modifier keys to their canonical form."""
-        if key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
-            return keyboard.Key.ctrl
-        if key in (keyboard.Key.shift_l, keyboard.Key.shift_r):
-            return keyboard.Key.shift
-        if key in (keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
-            return keyboard.Key.alt
-        return key
+    def get_embedded_api_key(self):
+        """Get the embedded API key"""
+        try:
+            # Embedded API key (base64 encoded for basic obfuscation)
+            encoded_key = "QUl6YVN5RE1BYWk5VndoMUpySEZIQXQzWlJoWjM5MHgtM25LRWpJ"  # Your actual encoded key
+            
+            decoded = base64.b64decode(encoded_key).decode()
+            
+            # Basic validation
+            if len(decoded) > 20 and decoded.startswith("AIza"):
+                return decoded
+            else:
+                # If there's still an issue with the key
+                messagebox.showerror("Error", "Failed to initialize TypoFix. Please contact support.")
+                return None
+                
+        except Exception as e:
+            print(f"Error decoding API key: {e}")
+            messagebox.showerror("Error", "Failed to initialize TypoFix. Please try running as administrator.")
+            return None
+
+    def get_text_selection_position(self):
+        """Try to get the position of selected text using various Windows APIs"""
+        try:
+            # Method 1: Try to get selection using UI Automation
+            try:
+                import comtypes.client
+                
+                # Initialize COM
+                comtypes.CoInitialize()
+                
+                # Get UI Automation
+                uia = comtypes.client.CreateObject("UIAutomation.CUIAutomation")
+                
+                # Get the focused element
+                focused_element = uia.GetFocusedElement()
+                
+                if focused_element:
+                    # Try to get text pattern
+                    try:
+                        text_pattern = focused_element.GetCurrentPattern(uia.UIA_TextPatternId)
+                        if text_pattern:
+                            # Get selection
+                            selections = text_pattern.GetSelection()
+                            if selections.Length > 0:
+                                selection = selections.GetElement(0)
+                                # Get bounding rectangle
+                                rect = selection.GetBoundingRectangles()
+                                if len(rect) >= 4:
+                                    # Return top-left of selection
+                                    return (int(rect[0]), int(rect[1]))
+                    except:
+                        pass
+                    
+                    # Fallback: get element's bounding rectangle
+                    try:
+                        rect = focused_element.CurrentBoundingRectangle
+                        # Return center-top of the focused element
+                        return (int(rect.left + rect.width/2), int(rect.top))
+                    except:
+                        pass
+                        
+            except ImportError:
+                print("COM/UI Automation not available, using fallback method")
+            except Exception as e:
+                print(f"UI Automation error: {e}")
+            
+            # Method 2: Enhanced caret position detection
+            try:
+                # Get the foreground window (active window)
+                hwnd = win32gui.GetForegroundWindow()
+                
+                # Try to get caret position
+                caret_pos = win32gui.GetCaretPos()
+                if caret_pos and caret_pos != (0, 0):
+                    # Convert to screen coordinates
+                    screen_pos = win32gui.ClientToScreen(hwnd, caret_pos)
+                    print(f"Got caret position: {screen_pos}")
+                    return screen_pos
+                
+                # Method 3: Try to get cursor position from focused window
+                import ctypes
+                from ctypes import wintypes
+                
+                # Get cursor position in focused window
+                class POINT(ctypes.Structure):
+                    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+                
+                point = POINT()
+                if ctypes.windll.user32.GetCursorPos(ctypes.byref(point)):
+                    # Check if this is inside the active window
+                    window_rect = win32gui.GetWindowRect(hwnd)
+                    if (window_rect[0] <= point.x <= window_rect[2] and 
+                        window_rect[1] <= point.y <= window_rect[3]):
+                        print(f"Using cursor position inside active window: ({point.x}, {point.y})")
+                        return (point.x, point.y)
+                
+                # Method 4: Get approximate position from window center
+                rect = win32gui.GetWindowRect(hwnd)
+                window_center_x = rect[0] + (rect[2] - rect[0]) // 2
+                window_top_area = rect[1] + 100  # Approximate content area
+                print(f"Using window-based approximation: ({window_center_x}, {window_top_area})")
+                return (window_center_x, window_top_area)
+                
+            except Exception as e:
+                print(f"Enhanced position detection error: {e}")
+            
+        except Exception as e:
+            print(f"Could not get text selection position: {e}")
+        
+        # Final fallback to mouse position
+        mouse_pos = pyautogui.position()
+        print(f"Using mouse position as final fallback: {mouse_pos}")
+        return mouse_pos
 
     def start_hotkey_listener(self):
         listener_thread = threading.Thread(target=self._run_listener, daemon=True)
         listener_thread.start()
 
     def _on_press(self, key):
-        original_raw_key = key
-        normalized_modifier_key = self._normalize_key(original_raw_key)
-
-        # Determine the canonical key form
-        canonical_key_form = None
-        if normalized_modifier_key == keyboard.Key.ctrl:
-            canonical_key_form = keyboard.Key.ctrl
-        elif isinstance(normalized_modifier_key, keyboard.KeyCode):
-            if normalized_modifier_key.char == 'c':
-                canonical_key_form = keyboard.KeyCode.from_char('c')
-            elif normalized_modifier_key.char == '\x03':  # If KeyCode's char is ETX
-                canonical_key_form = keyboard.KeyCode.from_char('c')
-        elif isinstance(normalized_modifier_key, str) and normalized_modifier_key == '\x03':  # Fallback for raw string
-            canonical_key_form = keyboard.KeyCode.from_char('c')
-
-        # Only log if the key is part of our hotkey combination
-        if canonical_key_form and canonical_key_form in self.hotkey_combination:
-            print(f"DEBUG: _on_press: Raw: {original_raw_key}, NormalizedMod: {normalized_modifier_key}, Canonical: {canonical_key_form}, CurrentSet: {self.current_hotkey_keys}")
-
+        try:
+            # More robust key detection
             if hasattr(self, 'simulating_paste') and self.simulating_paste:
                 return
 
-            self.current_hotkey_keys.add(canonical_key_form)
-            print(f"DEBUG: _on_press: Added {canonical_key_form} to set. CurrentSet: {self.current_hotkey_keys}")
+            # Handle Ctrl key detection more robustly
+            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
+                self.current_hotkey_keys.add(keyboard.Key.ctrl)
+                print(f"DEBUG: Ctrl key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
+            # Handle C key detection
+            elif hasattr(key, 'char') and key.char and key.char.lower() == 'c':
+                self.current_hotkey_keys.add(keyboard.KeyCode.from_char('c'))
+                print(f"DEBUG: C key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            
+            # Handle special case for Ctrl+C ETX character
+            elif hasattr(key, 'char') and key.char == '\x03':
+                # ETX character means Ctrl+C was pressed
+                print("DEBUG: ETX character detected - Ctrl+C combination!")
+                self.current_hotkey_keys.add(keyboard.Key.ctrl)
+                self.current_hotkey_keys.add(keyboard.KeyCode.from_char('c'))
+            
+            # Check if we have the complete hotkey combination
             if self.hotkey_combination.issubset(self.current_hotkey_keys):
-                print(f"DEBUG: _on_press: Hotkey combination {self.hotkey_combination} DETECTED!")
+                print(f"DEBUG: Hotkey combination DETECTED! CurrentSet: {self.current_hotkey_keys}")
                 self._handle_hotkey_action()
+                
+        except Exception as e:
+            print(f"DEBUG: Error in _on_press: {e}")
 
     def _on_release(self, key):
-        original_raw_key = key
-        normalized_modifier_key = self._normalize_key(original_raw_key)
-
-        # Determine the canonical key form
-        canonical_key_form = None
-        if normalized_modifier_key == keyboard.Key.ctrl:
-            canonical_key_form = keyboard.Key.ctrl
-        elif isinstance(normalized_modifier_key, keyboard.KeyCode):
-            if normalized_modifier_key.char == 'c':
-                canonical_key_form = keyboard.KeyCode.from_char('c')
-            elif normalized_modifier_key.char == '\x03':  # If KeyCode's char is ETX
-                canonical_key_form = keyboard.KeyCode.from_char('c')
-        elif isinstance(normalized_modifier_key, str) and normalized_modifier_key == '\x03':  # Fallback for raw string
-            canonical_key_form = keyboard.KeyCode.from_char('c')
-
-        # Only log if the key is part of our hotkey combination
-        if canonical_key_form and canonical_key_form in self.hotkey_combination:
-            print(f"DEBUG: _on_release: Raw: {original_raw_key}, NormalizedMod: {normalized_modifier_key}, Canonical: {canonical_key_form}, CurrentSet: {self.current_hotkey_keys}")
-
+        try:
             if hasattr(self, 'simulating_paste') and self.simulating_paste:
                 return
 
-            try:
-                self.current_hotkey_keys.remove(canonical_key_form)
-                print(f"DEBUG: _on_release: Removed {canonical_key_form} from set. CurrentSet: {self.current_hotkey_keys}")
-            except KeyError:
-                print(f"DEBUG: _on_release: Attempted to remove {canonical_key_form} but it was not in the set (possibly cleared by hotkey action).")
-                pass
+            # Handle Ctrl key release
+            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
+                try:
+                    self.current_hotkey_keys.discard(keyboard.Key.ctrl)
+                    print(f"DEBUG: Ctrl key released. CurrentSet: {self.current_hotkey_keys}")
+                except:
+                    pass
+            
+            # Handle C key release  
+            elif hasattr(key, 'char') and key.char and key.char.lower() == 'c':
+                try:
+                    self.current_hotkey_keys.discard(keyboard.KeyCode.from_char('c'))
+                    print(f"DEBUG: C key released. CurrentSet: {self.current_hotkey_keys}")
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"DEBUG: Error in _on_release: {e}")
 
     def _run_listener(self):
         with keyboard.Listener(on_press=self._on_press, on_release=self._on_release) as listener:
@@ -124,254 +358,287 @@ class TypoFixApp:
 
     def _handle_hotkey_action(self):
         print("Ctrl+C hotkey detected!") 
+        if self.floating_widget: # Prevent multiple widgets if one exists
+            print("INFO: Widget already exists. Ignoring hotkey.")
+            self.current_hotkey_keys.clear()
+            return
+        
         try:
             time.sleep(0.2) 
             copied_text = pyperclip.paste()
             
             if copied_text:
                 print(f"Captured text from clipboard: '{copied_text}'")
-                self.text_to_correct_for_widget = copied_text  # Store for the widget
-                self._show_floating_correction_widget()  # Show the widget instead of direct API call
+                self.text_to_correct_for_widget = copied_text
+                # Get text selection position before showing widget
+                self.selection_rect = self.get_text_selection_position()
+                self.root.after(0, self._show_floating_correction_widget)
             else:
                 print("No text found on clipboard after copy attempt.")
 
         except Exception as e:
             print(f"Error in hotkey action: {e}")
         
-        # Reset current keys to allow re-triggering
-        # Important: Clear after a short delay to avoid re-triggering if keys are held
         self.root.after(50, self.current_hotkey_keys.clear)
 
     def _show_floating_correction_widget(self):
+        print("DEBUG: _show_floating_correction_widget called")
+        
+        # Destroy any existing widget
         if self.floating_widget and self.floating_widget.winfo_exists():
             self.floating_widget.destroy()
-            self.floating_widget_label = None
-            self.floating_widget_button = None
-
-        mouse_x, mouse_y = pyautogui.position()
-        active_monitor = None
-        for m in get_monitors():
-            if m.x <= mouse_x < m.x + m.width and m.y <= mouse_y < m.y + m.height:
+        
+        # Create a new Toplevel window (now with 3 buttons)
+        self.floating_widget = tk.Toplevel(self.root)
+        self.floating_widget.title("")  # No title for minimal look
+        
+        # Widget dimensions - wider to accommodate 3 buttons
+        widget_width = 280  # Wider for three buttons
+        widget_height = 50   # Same height
+        
+        # Use text selection position instead of mouse position
+        if self.selection_rect:
+            base_x, base_y = self.selection_rect
+            print(f"Using detected selection position: ({base_x}, {base_y})")
+        else:
+            base_x, base_y = pyautogui.position()
+            print(f"No selection detected, using mouse position: ({base_x}, {base_y})")
+        
+        # Position widget above the selected text with better logic
+        pos_x = base_x - widget_width // 2  # Center horizontally on selection
+        pos_y = base_y - widget_height - 20  # Position above the selection with more space
+        
+        # Keep widget on screen with improved bounds checking
+        monitors = get_monitors()
+        active_monitor = monitors[0]  # Default to primary
+        for m in monitors:
+            if m.x <= base_x < m.x + m.width and m.y <= base_y < m.y + m.height:
                 active_monitor = m
                 break
-        if active_monitor is None:
-            active_monitor = get_monitors()[0]
-
-        self.floating_widget = tk.Toplevel(self.root)
-        self.floating_widget.overrideredirect(True)
-        self.floating_widget.attributes("-topmost", True)
-
-        canvas_width = 170  # Adjusted for more space
-        canvas_height = 40 # Adjusted
-        radius = 10
-        padding = 8 # General padding for content
-        bg_color = "lightgrey"
-        button_color = "#4CAF50"
-        font_family = "Arial"
-        font_size = 9
-
-        canvas = tk.Canvas(self.floating_widget, width=canvas_width, height=canvas_height,
-                           background=bg_color, # Explicitly set canvas background
-                           highlightthickness=0, bd=0)
-        canvas.pack()
-
-        def _create_rounded_rectangle(cv, x1, y1, x2, y2, r, **kwargs):
-            cv.create_arc(x1, y1, x1 + 2 * r, y1 + 2 * r,
-                          start=90, extent=90, smooth=True, **kwargs)
-            cv.create_arc(x2 - 2 * r, y1, x2, y1 + 2 * r,
-                          start=0, extent=90, smooth=True, **kwargs)
-            cv.create_arc(x1, y2 - 2 * r, x1 + 2 * r, y2,
-                          start=180, extent=90, smooth=True, **kwargs)
-            cv.create_arc(x2 - 2 * r, y2 - 2 * r, x2, y2,
-                          start=270, extent=90, smooth=True, **kwargs)
-            cv.create_rectangle(x1 + r, y1, x2 - r, y1 + r, **kwargs)
-            cv.create_rectangle(x1 + r, y2 - r, x2 - r, y2, **kwargs)
-            cv.create_rectangle(x1, y1 + r, x1 + r, y2 - r, **kwargs)
-            cv.create_rectangle(x2 - r, y1 + r, x2, y2 - r, **kwargs)
-            cv.create_rectangle(x1 + r, y1 + r, x2 - r, y2 - r, **kwargs)
-
-        _create_rounded_rectangle(canvas, 0, 0, canvas_width, canvas_height, radius, 
-                                  fill=bg_color, outline=bg_color)
-
-        self.floating_widget_label = tk.Label(canvas, text="TypoFix",  # Parent changed to canvas
-                                              background=bg_color, foreground="black",
-                                              font=(font_family, font_size))
-        self.floating_widget_label.update_idletasks()
-        label_req_width = self.floating_widget_label.winfo_reqwidth()
-        label_req_height = self.floating_widget_label.winfo_reqheight()
-
-        self.floating_widget_button = tk.Button(canvas, text="Fix & Paste",  # Parent changed to canvas
-                                                command=self._perform_correction_from_widget,
-                                                relief=tk.FLAT, background=button_color, foreground="white",
-                                                font=(font_family, font_size, "bold"),
-                                                padx=6, pady=0, # pady adjusted for vertical centering
-                                                borderwidth=0, highlightthickness=0, activebackground="#45a049")
-        self.floating_widget_button.update_idletasks()
         
-        # Calculate positions
-        content_total_height = max(label_req_height, button_req_height)
-        y_center_offset = (canvas_height - content_total_height) / 2
-
-        label_x = padding
-        label_y = y_center_offset
-        canvas.create_window(label_x, label_y, window=self.floating_widget_label, anchor=tk.NW)
-
-        button_x = label_x + label_req_width + padding # Spacing
-        button_y = y_center_offset 
-        # Adjust button y if its height is different to align baselines or centers
-        if label_req_height != button_req_height: # Basic vertical centering for button
-             button_y = (canvas_height - button_req_height) / 2
-        canvas.create_window(button_x, button_y, window=self.floating_widget_button, anchor=tk.NW)
+        print(f"Active monitor: {active_monitor.x}, {active_monitor.y}, {active_monitor.width}x{active_monitor.height}")
         
-        # Positioning the Toplevel window
-        screen_width = active_monitor.width
-        screen_height = active_monitor.height
-        screen_x_offset = active_monitor.x
-        screen_y_offset = active_monitor.y
-
-        relative_mouse_x = mouse_x - screen_x_offset
-        relative_mouse_y = mouse_y - screen_y_offset
-
-        final_x = screen_x_offset + relative_mouse_x + 15
-        final_y = screen_y_offset + relative_mouse_y + 15
-
-        if relative_mouse_x + 15 + canvas_width > screen_width:
-            final_x = screen_x_offset + screen_width - canvas_width - 5
-        if relative_mouse_y + 15 + canvas_height > screen_height:
-            final_y = screen_y_offset + screen_height - canvas_height - 5
+        # Adjust position to keep widget fully on screen
+        if pos_x + widget_width > active_monitor.x + active_monitor.width:
+            pos_x = active_monitor.x + active_monitor.width - widget_width - 10
+            print("Adjusted X position to fit on screen (right edge)")
+        if pos_x < active_monitor.x:
+            pos_x = active_monitor.x + 10
+            print("Adjusted X position to fit on screen (left edge)")
         
-        if final_x < screen_x_offset:
-            final_x = screen_x_offset + 5
-        if final_y < screen_y_offset:
-            final_y = screen_y_offset + 5
-            
-        self.floating_widget.geometry(f"+{final_x}+{final_y}")
+        # For Y position, if there's no room above, show below
+        if pos_y < active_monitor.y + 10:
+            pos_y = base_y + 25  # Show below selection if no room above
+            print("Not enough room above, showing below selection")
+        
+        # Final bounds check for Y
+        if pos_y + widget_height > active_monitor.y + active_monitor.height:
+            pos_y = active_monitor.y + active_monitor.height - widget_height - 10
+            print("Adjusted Y position to fit on screen (bottom edge)")
+        
+        self.floating_widget.geometry(f"{widget_width}x{widget_height}+{pos_x}+{pos_y}")
+        
+        # Minimal widget styling - transparent background
+        self.floating_widget.configure(bg='black')  # Will be made transparent
+        self.floating_widget.attributes('-topmost', True)  # Keep on top
+        self.floating_widget.resizable(False, False)
+        self.floating_widget.overrideredirect(True)  # Remove window decorations
+        
+        # Try to make the background transparent (Windows)
+        try:
+            self.floating_widget.wm_attributes('-transparentcolor', 'black')
+        except:
+            # Fallback for other systems - use a very dark color
+            self.floating_widget.configure(bg='#1a1a1a')
+        
+        # Create frame for buttons
+        button_frame = tk.Frame(self.floating_widget, bg='black')
+        button_frame.pack(expand=True, fill='both', padx=5, pady=5)
+        
+        # Try to make frame transparent too
+        try:
+            button_frame.configure(bg='black')
+        except:
+            button_frame.configure(bg='#1a1a1a')
+        
+        # Create three high-quality rounded buttons
+        self.fix_button = RoundedButton(
+            button_frame, 
+            text="✓ Fix", 
+            command=self._fix_and_paste,
+            bg_color='#27ae60',  # Green
+            hover_color='#2ecc71',
+            text_color='white',
+            width=80,
+            height=35,
+            corner_radius=8
+        )
+        self.fix_button.pack(side='left', padx=(0, 3))
+        
+        self.rewrite_button = RoundedButton(
+            button_frame, 
+            text="📝 Rewrite", 
+            command=self._rewrite_and_paste,
+            bg_color='#3498db',  # Blue
+            hover_color='#2980b9',
+            text_color='white',
+            width=80,
+            height=35,
+            corner_radius=8
+        )
+        self.rewrite_button.pack(side='left', padx=(0, 3))
+        
+        self.cancel_button = RoundedButton(
+            button_frame, 
+            text="✗ Cancel", 
+            command=self._cancel_widget,
+            bg_color='#e74c3c',  # Red
+            hover_color='#c0392b',
+            text_color='white',
+            width=80,
+            height=35,
+            corner_radius=8
+        )
+        self.cancel_button.pack(side='left')
+        
+        print(f"DEBUG: Widget with 3 buttons created at ({pos_x}, {pos_y}) with size ({widget_width}, {widget_height})")
+        
+        # Bring to front and focus
         self.floating_widget.lift()
         self.floating_widget.focus_force()
-        self.floating_widget.bind("<Escape>", lambda e: self._destroy_floating_widget())
 
-    def _destroy_floating_widget(self):
-        if self.floating_widget and self.floating_widget.winfo_exists():
-            self.floating_widget.destroy()
-        self.floating_widget = None
-        self.floating_widget_label = None
-        self.floating_widget_button = None
-        self.text_to_correct_for_widget = None  # Also clear text if widget is dismissed manually
-
-    def _update_widget_label_and_close(self, message, delay_seconds):
-        """Helper to update widget label, wait, and then destroy."""
-        if self.floating_widget and self.floating_widget.winfo_exists():
-            if self.floating_widget_label:
-                self.floating_widget_label.config(text=message)
-            self.floating_widget.update_idletasks()
-            # Use root.after to schedule the destruction, allowing UI to update
-            self.root.after(int(delay_seconds * 1000), self._destroy_floating_widget)
-        else:
-            # If widget somehow already gone or never created, ensure state is clean
-            self._destroy_floating_widget()
-
-    def _perform_correction_from_widget(self):
-        if not self.floating_widget or not self.floating_widget.winfo_exists():
-            self.text_to_correct_for_widget = None  # Ensure cleanup if called unexpectedly
-            return
-
-        # Update button state for visual feedback
-        if self.floating_widget_button:
-            self.floating_widget_button.config(text="Fixing...", state=tk.DISABLED)
-        if self.floating_widget_label:  # Optionally update label too
-            self.floating_widget_label.config(text="Processing...")
+    def _fix_and_paste(self):
+        """Handle the Fix button click"""
+        print("DEBUG: _fix_and_paste() called!")
+        text_to_correct = self.text_to_correct_for_widget
+        print(f"DEBUG: Text to correct: '{text_to_correct}' (length: {len(text_to_correct) if text_to_correct else 0})")
         
-        # Ensure UI updates before blocking call
-        self.floating_widget.update_idletasks()
-
-        original_text = self.text_to_correct_for_widget
-        corrected_text_content = None # To store the text from API
-
-        # --- Step 1: Call API and Parse ---
-        try:
-            if not original_text:
-                print("Error: No text stored for correction.")
-                self._update_widget_label_and_close("No Text", 0.7)
-                return 
-
-            print(f"Attempting to correct: '{original_text}'")
-            if not self.api_key:
-                print("API key not available for correction.")
-                self._update_widget_label_and_close("No Key", 0.7)
-                return
-
-            api_response = self._call_gemini_api(original_text)
-            if not api_response: # _call_gemini_api handles messagebox for its errors
-                print("API call failed or returned no response.")
-                self._update_widget_label_and_close("API Err", 0.7)
-                return
-
-            parsed_text = self._parse_gemini_response(api_response) # _parse_gemini_response handles messagebox
-            if not parsed_text:
-                print("Could not parse corrected text from API.")
-                self._update_widget_label_and_close("Parse Err", 0.7)
-                return
-            
-            corrected_text_content = parsed_text
-            print(f"API Corrected Text: '{corrected_text_content}'")
-
-        except Exception as e: # Catch any unexpected error during API/parsing stages
-            print(f"Unexpected error during correction processing: {e}")
-            self._update_widget_label_and_close("Internal Err", 0.7)
+        if not text_to_correct or not text_to_correct.strip():
+            print("DEBUG: No text to correct")
+            self._cancel_widget()
             return
 
-        # --- Step 2: Decide if pasting, then act ---
-        if corrected_text_content and corrected_text_content.strip().lower() != original_text.strip().lower():
-            # Text has changed and is not empty, proceed with paste
-            self._destroy_floating_widget()  # Destroy widget *before* paste
-            time.sleep(0.15)  # Increased delay for OS to return focus to the previous app
+        print("DEBUG: Processing text correction...")
+        
+        # Call Gemini API for typo fixing
+        corrected_text = self._call_gemini_api_fix(text_to_correct)
+        print(f"DEBUG: API returned corrected text: '{corrected_text}'")
 
-            try:
-                pyperclip.copy(corrected_text_content)
-                print("Corrected text copied to clipboard.")
-                
-                self.simulating_paste = True
-                print("Simulating Ctrl+V (Paste)")
-                pyautogui.hotkey('ctrl', 'v')
-                time.sleep(0.05) # Small delay after paste
-                self.simulating_paste = False
-                print("Paste simulation finished.")
-            except Exception as e:
-                print(f"Error during copy/paste: {e}")
-                # Widget is already destroyed, so we can only show a messagebox
-                messagebox.showerror("Paste Error", f"Could not paste text: {e}")
+        if corrected_text:
+            print(f"DEBUG: Corrected text: '{corrected_text}'")
+            
+            # Test clipboard operations
+            old_clipboard = pyperclip.paste()
+            print(f"DEBUG: Old clipboard content: '{old_clipboard}'")
+            
+            pyperclip.copy(corrected_text)
+            print("DEBUG: Corrected text copied to clipboard.")
+            
+            # Verify clipboard
+            new_clipboard = pyperclip.paste()
+            print(f"DEBUG: New clipboard content: '{new_clipboard}'")
+            
+            # Close widget and paste
+            self._close_and_paste()
         else:
-            # No change needed or API returned empty/same text as original
-            print("No change needed or API returned empty/same text.")
-            self._update_widget_label_and_close("No Change", 0.7)
+            print("DEBUG: Failed to correct text - API returned None/empty")
+            self._cancel_widget()
 
-    def _parse_gemini_response(self, response_json):
-        """Parses the JSON response from Gemini API to extract corrected text."""
+    def _rewrite_and_paste(self):
+        """Handle the Rewrite button click"""
+        print("DEBUG: _rewrite_and_paste() called!")
+        text_to_rewrite = self.text_to_correct_for_widget
+        print(f"DEBUG: Text to rewrite: '{text_to_rewrite}' (length: {len(text_to_rewrite) if text_to_rewrite else 0})")
+        
+        if not text_to_rewrite or not text_to_rewrite.strip():
+            print("DEBUG: No text to rewrite")
+            self._cancel_widget()
+            return
+
+        print("DEBUG: Processing text rewriting for clarity...")
+        
+        # Call Gemini API for rewriting
+        rewritten_text = self._call_gemini_api_rewrite(text_to_rewrite)
+        print(f"DEBUG: API returned rewritten text: '{rewritten_text}'")
+
+        if rewritten_text:
+            print(f"DEBUG: Rewritten text: '{rewritten_text}'")
+            
+            # Test clipboard operations
+            old_clipboard = pyperclip.paste()
+            print(f"DEBUG: Old clipboard content: '{old_clipboard}'")
+            
+            pyperclip.copy(rewritten_text)
+            print("DEBUG: Rewritten text copied to clipboard.")
+            
+            # Verify clipboard
+            new_clipboard = pyperclip.paste()
+            print(f"DEBUG: New clipboard content: '{new_clipboard}'")
+            
+            # Close widget and paste
+            self._close_and_paste()
+        else:
+            print("DEBUG: Failed to rewrite text - API returned None/empty")
+            self._cancel_widget()
+
+    def _close_and_paste(self):
+        """Close widget and simulate paste"""
+        print("DEBUG: _close_and_paste() called!")
+        
+        if self.floating_widget:
+            print("DEBUG: Destroying widget")
+            self.floating_widget.destroy()
+            self.floating_widget = None
+        
+        # Add a longer delay and better focus handling
+        print("DEBUG: Starting paste simulation")
+        self.simulating_paste = True
         try:
-            corrected_text = response_json['candidates'][0]['content']['parts'][0]['text']
-            stripped_text = corrected_text.strip()  # Strip here
-            if not stripped_text:  # Check if the text is effectively empty after stripping
-                print("API returned empty or whitespace-only text.")
-                messagebox.showerror("API Response Error", "API returned empty or effectively empty text.")
-                return None 
-            return stripped_text  # Return the stripped text
-        except (KeyError, IndexError, TypeError) as e:
-            error_msg = f"Error parsing Gemini API response: {e}. Expected structure not found."
-            print(error_msg)
-            print("Full API Response for debugging:", response_json)
-            messagebox.showerror("API Response Error", f"{error_msg}\nCheck console for details.")
-            return None
+            print("DEBUG: Waiting 0.3 seconds before paste...")
+            time.sleep(0.3)  # Increased delay
+            
+            # Try to focus back to the original window
+            try:
+                # Get the foreground window that should receive the paste
+                hwnd = win32gui.GetForegroundWindow()
+                if hwnd:
+                    # Make sure the window is active
+                    win32gui.SetForegroundWindow(hwnd)
+                    time.sleep(0.1)  # Small delay after focus
+            except Exception as e:
+                print(f"DEBUG: Could not set foreground window: {e}")
+            
+            print("DEBUG: Simulating Ctrl+V...")
+            pyautogui.hotkey('ctrl', 'v')
+            print("DEBUG: Paste action simulated successfully")
+            
+            # Wait a bit more to ensure paste completes
+            time.sleep(0.2)
+            
+        except Exception as e:
+            print(f"DEBUG: Error simulating paste: {e}")
+        finally:
+            self.simulating_paste = False
+            print("DEBUG: Paste simulation completed")
 
-    def _call_gemini_api(self, text_to_correct):
-        """Calls the Gemini API to correct the provided text."""
-        if not self.api_key:
-            messagebox.showerror("API Error", "Gemini API key is not configured.")
-            return None
+    def _cancel_widget(self):
+        """Cancel and close the widget"""
+        if self.floating_widget:
+             self.floating_widget.destroy()
+        self.floating_widget = None
+        print("Widget cancelled")
 
+    def _detect_language(self, text):
+        """Detect the language of the input text using Gemini API"""
+        print(f"DEBUG: Detecting language for text: '{text[:50]}...'")
+        
         api_url = f"{self.gemini_api_base_url}?key={self.api_key}"
         
-        # Modified prompt to ask for original text if no typos are found
-        prompt = f"Correct the following text for typos. If no typos are found, return the original text verbatim. Text: \"{text_to_correct}\""
+        prompt = f"""Detect the language of the following text and respond with ONLY the language name in English (e.g., "Romanian", "English", "Spanish", "French", etc.).
+
+Text: "{text}"
+
+Language:"""
         
         payload = {
             "contents": [{
@@ -384,72 +651,328 @@ class TypoFixApp:
         headers = {
             "Content-Type": "application/json"
         }
-
+        
         try:
-            response = requests.post(api_url, json=payload, headers=headers)
-            response.raise_for_status()  # Raises an HTTPError for bad responses (4XX or 5XX)
-            return response.json()
-        except requests.exceptions.HTTPError as http_err:
-            error_message = f"HTTP error occurred: {http_err} - {response.text}"
-            print(error_message)
-            messagebox.showerror("API Error", f"HTTP error: {http_err}\nResponse: {response.text}")
+            response = requests.post(api_url, json=payload, headers=headers, timeout=15)
+            
+            if response.status_code != 200:
+                print(f"DEBUG: Language detection API error - Status: {response.status_code}")
+                return "Unknown"
+            
+            response_data = response.json()
+            if 'candidates' in response_data and len(response_data['candidates']) > 0:
+                candidate = response_data['candidates'][0]
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    parts = candidate['content']['parts']
+                    if len(parts) > 0 and 'text' in parts[0]:
+                        detected_language = parts[0]['text'].strip()
+                        # Clean up the response
+                        detected_language = detected_language.replace("Language:", "").strip()
+                        if detected_language.startswith('"') and detected_language.endswith('"'):
+                            detected_language = detected_language[1:-1]
+                        
+                        print(f"DEBUG: Detected language: '{detected_language}'")
+                        return detected_language
+            
+            print("DEBUG: Could not detect language, defaulting to Unknown")
+            return "Unknown"
+            
+        except Exception as e:
+            print(f"DEBUG: Language detection error: {e}")
+            return "Unknown"
+
+    def _call_gemini_api_fix(self, text_to_correct):
+        """Calls the Gemini API to fix typos in the provided text."""
+        print(f"DEBUG: _call_gemini_api_fix() called with text: '{text_to_correct}'")
+        
+        # First detect the language
+        detected_language = self._detect_language(text_to_correct)
+        print(f"DEBUG: Language detected as: {detected_language}")
+        
+        api_url = f"{self.gemini_api_base_url}?key={self.api_key}"
+        
+        # Enhanced prompt with language detection
+        prompt = f"""The following text is written in {detected_language}. Fix any typos, spelling errors, and grammar mistakes while keeping the text EXACTLY in {detected_language}. 
+
+IMPORTANT REQUIREMENTS:
+- Keep the text in {detected_language} language - DO NOT translate to any other language
+- Fix only spelling errors, typos, and obvious grammar mistakes
+- Preserve the original meaning, style, and tone completely
+- Maintain the exact same format (line breaks, paragraphs, etc.)
+- Return ONLY the corrected text with no explanations or additional words
+- If there are no errors, return the original text exactly as provided
+
+Text to correct: "{text_to_correct}"
+
+Corrected text in {detected_language}:"""
+        
+        payload = {
+            "contents": [{
+                "parts": [{
+                    "text": prompt
+                }]
+            }]
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        print(f"DEBUG: Making API request with language-aware prompt...")
+        
+        try:
+            response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+            print(f"DEBUG: Response status code: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"DEBUG: API error - Status: {response.status_code}")
+                print(f"DEBUG: API error - Response: {response.text}")
+                return None
+            
+            response.raise_for_status()
+            
+            response_data = response.json()
+            print(f"DEBUG: Response data keys: {list(response_data.keys())}")
+            
+            if 'candidates' in response_data and len(response_data['candidates']) > 0:
+                candidate = response_data['candidates'][0]
+                
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    parts = candidate['content']['parts']
+                    
+                    if len(parts) > 0 and 'text' in parts[0]:
+                        corrected_text = parts[0]['text'].strip()
+                        print(f"DEBUG: Raw API response text: '{corrected_text}'")
+                        
+                        # Clean up the response
+                        corrected_text = corrected_text.replace(f"Corrected text in {detected_language}:", "").strip()
+                        corrected_text = corrected_text.replace("Corrected text:", "").strip()
+                        if corrected_text.startswith('"') and corrected_text.endswith('"'):
+                            corrected_text = corrected_text[1:-1]
+                        
+                        print(f"DEBUG: Final corrected text: '{corrected_text}'")
+                        return corrected_text
+            
+            print("DEBUG: Failed to extract text from Gemini API response")
             return None
-        except requests.exceptions.ConnectionError as conn_err:
-            error_message = f"Connection error occurred: {conn_err}"
-            print(error_message)
-            messagebox.showerror("API Error", f"Connection error: {conn_err}")
+            
+        except requests.exceptions.Timeout:
+            print("DEBUG: API request timed out")
             return None
-        except requests.exceptions.Timeout as timeout_err:
-            error_message = f"Timeout error occurred: {timeout_err}"
-            print(error_message)
-            messagebox.showerror("API Error", f"Timeout error: {timeout_err}")
+        except requests.exceptions.ConnectionError:
+            print("DEBUG: API connection error")
             return None
-        except requests.exceptions.RequestException as req_err:
-            error_message = f"An unexpected error occurred with the API request: {req_err}"
-            print(error_message)
-            messagebox.showerror("API Error", f"Request error: {req_err}")
+        except requests.exceptions.RequestException as e:
+            print(f"DEBUG: API request error: {e}")
             return None
         except Exception as e:
-            error_message = f"An unexpected error occurred during API call: {e}"
-            print(error_message)
-            messagebox.showerror("Error", f"An unexpected error: {e}")
+            print(f"DEBUG: Unexpected error during API call: {e}")
             return None
 
-    def _display_corrected_text(self, corrected_text):
-        """Displays the corrected text in a Toplevel window."""
-        if self.correction_display_window and self.correction_display_window.winfo_exists():
-            self.correction_display_window.destroy()  # Close existing window if open
-
-        self.correction_display_window = tk.Toplevel(self.root)
-        self.correction_display_window.title("Corrected Text")
-
-        # Position the window at the top of the main window
-        main_x = self.root.winfo_x()
-        main_y = self.root.winfo_y()
-        main_width = self.root.winfo_width()
+    def _call_gemini_api_rewrite(self, text_to_rewrite):
+        """Calls the Gemini API to rewrite text for better clarity and logic."""
+        print(f"DEBUG: _call_gemini_api_rewrite() called with text: '{text_to_rewrite}'")
         
-        # Set a fixed width for the Toplevel, height will adjust or be fixed
-        display_width = main_width - 40  # Slightly less than main window width
+        # First detect the language
+        detected_language = self._detect_language(text_to_rewrite)
+        print(f"DEBUG: Language detected as: {detected_language}")
+        
+        api_url = f"{self.gemini_api_base_url}?key={self.api_key}"
+        
+        # Enhanced prompt with language detection
+        prompt = f"""The following text is written in {detected_language}. Rewrite it to improve word placement, sentence structure, and logical flow while keeping it EXACTLY in {detected_language}.
 
-        # Center the Toplevel window horizontally above the main window
-        self.correction_display_window.geometry(f"{display_width}x100+{main_x + 20}+{main_y + 20}") 
+CRITICAL REQUIREMENTS:
+- Keep the text in {detected_language} language - DO NOT translate to any other language
+- Preserve ALL original information, facts, and meaning completely
+- Maintain the EXACT same format (paragraphs, line breaks, structure)
+- Only improve word order, sentence structure, and logical flow
+- Do not add or remove any information whatsoever
+- Keep the same writing style and tone
+- Return ONLY the rewritten text with no explanations or commentary
+- If the text is already well-structured, return it with minimal changes
 
-        # Use a Text widget for display, allowing for multi-line and potential copying
-        text_area = Text(self.correction_display_window, wrap=tk.WORD, height=5, relief=tk.FLAT, background=self.correction_display_window.cget('bg'))
-        text_area.insert(tk.END, corrected_text)
-        text_area.config(state=tk.DISABLED)  # Make it read-only
-        text_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+Original text in {detected_language}: "{text_to_rewrite}"
 
-        # Make the window non-resizable for now, or allow as needed
-        self.correction_display_window.resizable(False, False)
+Rewritten text in {detected_language}:"""
+        
+        payload = {
+            "contents": [{
+                "parts": [{
+                    "text": prompt
+                }]
+            }]
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        print(f"DEBUG: Making rewrite API request with language-aware prompt...")
+        
+        try:
+            response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+            print(f"DEBUG: Response status code: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"DEBUG: API error - Status: {response.status_code}")
+                print(f"DEBUG: API error - Response: {response.text}")
+                return None
+            
+            response.raise_for_status()
+            
+            response_data = response.json()
+            print(f"DEBUG: Response data keys: {list(response_data.keys())}")
+            
+            if 'candidates' in response_data and len(response_data['candidates']) > 0:
+                candidate = response_data['candidates'][0]
+                
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    parts = candidate['content']['parts']
+                    
+                    if len(parts) > 0 and 'text' in parts[0]:
+                        rewritten_text = parts[0]['text'].strip()
+                        print(f"DEBUG: Raw API response text: '{rewritten_text}'")
+                        
+                        # Clean up the response
+                        rewritten_text = rewritten_text.replace(f"Rewritten text in {detected_language}:", "").strip()
+                        rewritten_text = rewritten_text.replace("Rewritten text:", "").strip()
+                        if rewritten_text.startswith('"') and rewritten_text.endswith('"'):
+                            rewritten_text = rewritten_text[1:-1]
+                        
+                        print(f"DEBUG: Final rewritten text: '{rewritten_text}'")
+                        return rewritten_text
+            
+            print("DEBUG: Failed to extract text from Gemini API response")
+            return None
+            
+        except requests.exceptions.Timeout:
+            print("DEBUG: API request timed out")
+            return None
+        except requests.exceptions.ConnectionError:
+            print("DEBUG: API connection error")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"DEBUG: API request error: {e}")
+            return None
+        except Exception as e:
+            print(f"DEBUG: Unexpected error during API call: {e}")
+            return None
 
-        # Bring the window to the front
-        self.correction_display_window.lift()
-        self.correction_display_window.focus_set()
+    def create_tray_icon(self):
+        """Create a simple icon for the system tray"""
+        # Create a 64x64 icon with a "T" for TypoFix
+        size = (64, 64)
+        image = Image.new('RGBA', size, (76, 175, 80, 255))  # Green background
+        
+        # Create a simple "T" text icon
+        try:
+            from PIL import ImageDraw, ImageFont
+            draw = ImageDraw.Draw(image)
+            try:
+                # Try to use a system font
+                font = ImageFont.truetype("arial.ttf", 40)
+            except:
+                font = ImageFont.load_default()
+            
+            # Calculate text position to center the "T"
+            text = "T"
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (size[0] - text_width) // 2
+            y = (size[1] - text_height) // 2
+            
+            # Draw white "T"
+            draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+        except:
+            # Fallback if drawing fails
+            pass
+        
+        return image
 
-        # Optional: Add a close button
-        close_button = tk.Button(self.correction_display_window, text="Close", command=self.correction_display_window.destroy)
-        close_button.pack(pady=5)
+    def setup_system_tray(self):
+        """Setup the system tray icon with context menu"""
+        try:
+            # Create the tray icon
+            icon_image = self.create_tray_icon()
+            
+            # Create context menu
+            menu = pystray.Menu(
+                pystray.MenuItem("TypoFix - AI Text Correction", lambda: None, enabled=False),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Status: Running", lambda: None, enabled=False),
+                pystray.MenuItem("Usage: Highlight text → Ctrl+C", lambda: None, enabled=False),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Show Instructions", self.show_instructions),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Exit TypoFix", self.quit_application)
+            )
+            
+            # Create the system tray icon
+            self.tray_icon = pystray.Icon(
+                "TypoFix",
+                icon_image,
+                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+C",
+                menu
+            )
+            
+            # Run the tray icon in a separate thread
+            tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
+            tray_thread.start()
+            
+            print("System tray icon created successfully.")
+            
+        except Exception as e:
+            print(f"Could not create system tray icon: {e}")
+            # Continue without tray icon if it fails
+
+    def show_instructions(self):
+        """Show usage instructions"""
+        instructions = """TypoFix - How to Use:
+
+1. Highlight any text in any application
+2. Press Ctrl+C to copy the text
+3. A widget will appear with three buttons:
+   • ✓ Fix - Corrects typos and spelling
+   • 📝 Rewrite - Improves clarity and logic
+   • ✗ Cancel - Dismiss without changes
+4. Click your desired action
+
+The app runs in the background and works in:
+• Web browsers (Chrome, Firefox, Edge)
+• Microsoft Word, Excel, PowerPoint
+• Email clients (Outlook, Gmail)
+• Text editors and any other application
+
+TypoFix preserves the original language and format 
+while improving your text."""
+
+        # Create a simple info dialog
+        messagebox.showinfo("TypoFix - Instructions", instructions)
+
+    def quit_application(self):
+        """Quit the application completely"""
+        try:
+            print("Shutting down TypoFix...")
+            
+            # Close floating widget if open
+            if self.floating_widget:
+                self.floating_widget.destroy()
+            
+            # Stop the tray icon
+            if hasattr(self, 'tray_icon'):
+                self.tray_icon.stop()
+            
+            # Quit the main application
+            self.root.quit()
+            self.root.destroy()
+            
+        except Exception as e:
+            print(f"Error during shutdown: {e}")
+        finally:
+            # Force exit if normal shutdown fails
+            os._exit(0)
 
 if __name__ == "__main__":
     main_root = tk.Tk()
