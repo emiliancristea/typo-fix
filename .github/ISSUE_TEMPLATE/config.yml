@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation & FAQ
+    url: https://github.com/emiliancristea/typo-fix#-usage
+    about: Check the documentation for common questions and usage guides
+  - name: 💬 Discussion Forum
+    url: https://github.com/emiliancristea/typo-fix/discussions
+    about: Ask questions, share ideas, or discuss TypoFix with the community
+  - name: 🚀 Latest Release
+    url: https://github.com/emiliancristea/typo-fix/releases/latest
+    about: Download the latest version of TypoFix
+  - name: 📊 Feature Roadmap
+    url: https://github.com/emiliancristea/typo-fix/blob/main/CHANGELOG.md#unreleased
+    about: Check out planned features and upcoming improvements 

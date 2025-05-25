@@ -13,7 +13,7 @@
 
 *Instantly fix typos and improve text clarity across any Windows application with the power of AI*
 
-[🚀 Download Latest Release](#installation) • [📖 Documentation](#usage) • [🐛 Report Bug](https://github.com/yourusername/typo-fix/issues) • [💡 Request Feature](https://github.com/yourusername/typo-fix/issues)
+[🚀 Download Latest Release](https://github.com/emiliancristea/typo-fix/releases/latest) • [📖 Documentation](#-usage) • [🐛 Report Bug](https://github.com/emiliancristea/typo-fix/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D) • [💡 Request Feature](https://github.com/emiliancristea/typo-fix/issues/new?assignees=&labels=enhancement&projects=&template=feature_request.md&title=%5BFEATURE%5D)
 
 </div>
 
