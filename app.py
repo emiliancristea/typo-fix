@@ -638,29 +638,114 @@ class TypoFixApp:
             if self.original_window_handle:
                 try:
                     print(f"DEBUG: Trying to restore focus to original window: {self.original_window_handle}")
+                    
+                    # Get window title for debugging
+                    try:
+                        window_title = win32gui.GetWindowText(self.original_window_handle)
+                        print(f"DEBUG: Original window title: '{window_title}'")
+                    except:
+                        print("DEBUG: Could not get original window title")
+                    
                     # Check if the window is still valid
                     if win32gui.IsWindow(self.original_window_handle):
-                        # Bring the original window to foreground
-                        win32gui.SetForegroundWindow(self.original_window_handle)
-                        win32gui.BringWindowToTop(self.original_window_handle)
-                        time.sleep(0.3)  # Give more time for focus to settle
-                        focus_restored = True
-                        print("DEBUG: Successfully restored focus to original window")
+                        # Try multiple methods to restore focus
+                        try:
+                            # Method 1: SetForegroundWindow
+                            win32gui.SetForegroundWindow(self.original_window_handle)
+                            time.sleep(0.1)
+                            
+                            # Method 2: BringWindowToTop
+                            win32gui.BringWindowToTop(self.original_window_handle)
+                            time.sleep(0.1)
+                            
+                            # Method 3: ShowWindow to ensure it's visible
+                            win32gui.ShowWindow(self.original_window_handle, win32con.SW_RESTORE)
+                            time.sleep(0.1)
+                            
+                            # Method 4: SetActiveWindow (additional method)
+                            try:
+                                win32gui.SetActiveWindow(self.original_window_handle)
+                            except:
+                                pass  # This might fail, but that's OK
+                            
+                            time.sleep(0.3)  # Give more time for focus to settle
+                            
+                            # Verify focus was actually restored
+                            current_foreground = win32gui.GetForegroundWindow()
+                            if current_foreground == self.original_window_handle:
+                                focus_restored = True
+                                print("DEBUG: Successfully restored focus to original window")
+                            else:
+                                print(f"DEBUG: Focus restoration failed - current foreground: {current_foreground}, expected: {self.original_window_handle}")
+                        except Exception as e:
+                            print(f"DEBUG: Error in focus restoration methods: {e}")
                     else:
                         print("DEBUG: Original window handle is no longer valid")
                 except Exception as e:
                     print(f"DEBUG: Could not restore focus to original window: {e}")
             
+            # If focus restoration failed, try more aggressive methods
             if not focus_restored:
-                print("DEBUG: Could not restore original focus, trying alternative method...")
+                print("DEBUG: Primary focus restoration failed, trying aggressive methods...")
                 try:
-                    # Fallback: try to get the current foreground window (should be the original app)
-                    current_hwnd = win32gui.GetForegroundWindow()
-                    if current_hwnd and current_hwnd != self.original_window_handle:
-                        win32gui.SetForegroundWindow(current_hwnd)
-                        time.sleep(0.2)
+                    # Method 1: Try to find windows with the same class name or title
+                    if self.original_window_handle:
+                        try:
+                            class_name = win32gui.GetClassName(self.original_window_handle)
+                            window_title = win32gui.GetWindowText(self.original_window_handle)
+                            print(f"DEBUG: Looking for similar windows - Class: '{class_name}', Title: '{window_title}'")
+                            
+                            # Find other windows with same class
+                            def enum_windows_callback(hwnd, results):
+                                if win32gui.IsWindowVisible(hwnd):
+                                    try:
+                                        if win32gui.GetClassName(hwnd) == class_name:
+                                            title = win32gui.GetWindowText(hwnd)
+                                            if title:  # Only consider windows with titles
+                                                results.append((hwnd, title))
+                                    except:
+                                        pass
+                                return True
+                            
+                            similar_windows = []
+                            win32gui.EnumWindows(enum_windows_callback, similar_windows)
+                            
+                            # Try to focus the first similar window
+                            if similar_windows:
+                                for hwnd, title in similar_windows:
+                                    try:
+                                        print(f"DEBUG: Trying similar window: {hwnd} - '{title}'")
+                                        win32gui.SetForegroundWindow(hwnd)
+                                        time.sleep(0.2)
+                                        current_foreground = win32gui.GetForegroundWindow()
+                                        if current_foreground == hwnd:
+                                            focus_restored = True
+                                            print(f"DEBUG: Successfully focused similar window: '{title}'")
+                                            break
+                                    except:
+                                        continue
+                        except Exception as e:
+                            print(f"DEBUG: Error in similar window search: {e}")
+                    
+                    # Final fallback: just try to avoid the terminal
+                    if not focus_restored:
+                        current_hwnd = win32gui.GetForegroundWindow()
+                        try:
+                            current_title = win32gui.GetWindowText(current_hwnd)
+                            current_class = win32gui.GetClassName(current_hwnd)
+                            print(f"DEBUG: Current foreground window: '{current_title}' (class: '{current_class}')")
+                            
+                            # If current window is a terminal/command prompt, try to find a better target
+                            if any(term in current_class.lower() for term in ['console', 'cmd', 'powershell', 'terminal']):
+                                print("DEBUG: Current window is a terminal, looking for alternative...")
+                                # Don't paste if we're in a terminal - just abort
+                                print("DEBUG: Aborting paste to prevent terminal pasting")
+                                return
+                        except Exception as e:
+                            print(f"DEBUG: Error checking current window: {e}")
+                            
                 except Exception as e:
-                    print(f"DEBUG: Fallback focus method failed: {e}")
+                    print(f"DEBUG: Error in aggressive focus methods: {e}")
             
             print("DEBUG: Simulating Ctrl+V...")
             pyautogui.hotkey('ctrl', 'v')
