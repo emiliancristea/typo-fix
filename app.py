@@ -173,10 +173,10 @@ class TypoFixApp:
         self.setup_system_tray()
 
         # --- Hotkey Setup ---
-        self.hotkey_combination = {keyboard.Key.shift_l}  # Left Shift key only
+        self.hotkey_combination = {keyboard.Key.ctrl, keyboard.Key.shift_l}  # Ctrl + Left Shift
         self.current_hotkey_keys = set()
         self.start_hotkey_listener()
-        print(f"TypoFix is ready! Highlight text and press LEFT SHIFT to correct typos or improve clarity.")
+        print(f"TypoFix is ready! Highlight text and press CTRL+LEFT SHIFT to correct typos or improve clarity.")
 
     def get_embedded_api_key(self):
         """Get the embedded API key"""
@@ -303,12 +303,17 @@ class TypoFixApp:
             if hasattr(self, 'simulating_paste') and self.simulating_paste:
                 return
 
+            # Handle Ctrl key detection
+            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
+                self.current_hotkey_keys.add(keyboard.Key.ctrl)
+                print(f"DEBUG: Ctrl key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            
             # Handle Left Shift key detection
-            if key == keyboard.Key.shift_l:
+            elif key == keyboard.Key.shift_l:
                 self.current_hotkey_keys.add(keyboard.Key.shift_l)
                 print(f"DEBUG: Left Shift key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
-            # Check if we have the complete hotkey combination (just Left Shift)
+            # Check if we have the complete hotkey combination (Ctrl + Left Shift)
             if self.hotkey_combination.issubset(self.current_hotkey_keys):
                 print(f"DEBUG: Hotkey combination DETECTED! CurrentSet: {self.current_hotkey_keys}")
                 self._handle_hotkey_action()
@@ -322,8 +327,16 @@ class TypoFixApp:
             if hasattr(self, 'simulating_paste') and self.simulating_paste:
                 return
 
+            # Handle Ctrl key release
+            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
+                try:
+                    self.current_hotkey_keys.discard(keyboard.Key.ctrl)
+                    print(f"DEBUG: Ctrl key released. CurrentSet: {self.current_hotkey_keys}")
+                except:
+                    pass
+            
             # Handle Left Shift key release
-            if key == keyboard.Key.shift_l:
+            elif key == keyboard.Key.shift_l:
                 try:
                     self.current_hotkey_keys.discard(keyboard.Key.shift_l)
                     print(f"DEBUG: Left Shift key released. CurrentSet: {self.current_hotkey_keys}")
@@ -338,7 +351,7 @@ class TypoFixApp:
             listener.join()
 
     def _handle_hotkey_action(self):
-        print("Left Shift hotkey detected!") 
+        print("Ctrl+Left Shift hotkey detected!") 
         if self.floating_widget: # Prevent multiple widgets if one exists
             print("INFO: Widget already exists. Ignoring hotkey.")
             self.current_hotkey_keys.clear()
@@ -891,7 +904,7 @@ Rewritten text in {detected_language}:"""
                 pystray.MenuItem("TypoFix - AI Text Correction", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Status: Running", lambda: None, enabled=False),
-                pystray.MenuItem("Usage: Highlight text → Left Shift", lambda: None, enabled=False),
+                pystray.MenuItem("Usage: Highlight text → Ctrl+Left Shift", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Show Instructions", self.show_instructions),
                 pystray.Menu.SEPARATOR,
@@ -902,7 +915,7 @@ Rewritten text in {detected_language}:"""
             self.tray_icon = pystray.Icon(
                 "TypoFix",
                 icon_image,
-                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Left Shift",
+                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+Left Shift",
                 menu
             )
             
@@ -921,7 +934,7 @@ Rewritten text in {detected_language}:"""
         instructions = """TypoFix - How to Use:
 
 1. Highlight any text in any application
-2. Press LEFT SHIFT key to activate TypoFix
+2. Press CTRL+LEFT SHIFT to activate TypoFix
 3. A widget will appear with three buttons:
    • ✓ Fix - Corrects typos and spelling
    • 📝 Rewrite - Improves clarity and logic
