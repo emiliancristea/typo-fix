@@ -171,6 +171,7 @@ class TypoFixApp:
         self.widget_timeout_timer = None
         self.widget_timeout_seconds = 4
         self.widget_is_hovered = False
+        self.original_window_handle = None
 
         # --- System Tray Setup ---
         self.setup_system_tray()
@@ -361,6 +362,14 @@ class TypoFixApp:
             return
         
         try:
+            # Capture the original window handle BEFORE we do anything else
+            try:
+                self.original_window_handle = win32gui.GetForegroundWindow()
+                print(f"DEBUG: Captured original window handle: {self.original_window_handle}")
+            except Exception as e:
+                print(f"DEBUG: Could not capture original window: {e}")
+                self.original_window_handle = None
+            
             # Get text selection position first
             self.selection_rect = self.get_text_selection_position()
             
@@ -615,31 +624,50 @@ class TypoFixApp:
             self.floating_widget.destroy()
             self.floating_widget = None
         self.widget_is_hovered = False
+        self.original_window_handle = None
         
         # Add a longer delay and better focus handling
         print("DEBUG: Starting paste simulation")
         self.simulating_paste = True
         try:
-            print("DEBUG: Waiting 0.3 seconds before paste...")
-            time.sleep(0.3)  # Increased delay
+            print("DEBUG: Waiting 0.5 seconds before paste...")
+            time.sleep(0.5)  # Longer delay to ensure widget is fully closed
             
-            # Try to focus back to the original window
-            try:
-                # Get the foreground window that should receive the paste
-                hwnd = win32gui.GetForegroundWindow()
-                if hwnd:
-                    # Make sure the window is active
-                    win32gui.SetForegroundWindow(hwnd)
-                    time.sleep(0.1)  # Small delay after focus
-            except Exception as e:
-                print(f"DEBUG: Could not set foreground window: {e}")
+            # Try to focus back to the original window we captured
+            focus_restored = False
+            if self.original_window_handle:
+                try:
+                    print(f"DEBUG: Trying to restore focus to original window: {self.original_window_handle}")
+                    # Check if the window is still valid
+                    if win32gui.IsWindow(self.original_window_handle):
+                        # Bring the original window to foreground
+                        win32gui.SetForegroundWindow(self.original_window_handle)
+                        win32gui.BringWindowToTop(self.original_window_handle)
+                        time.sleep(0.3)  # Give more time for focus to settle
+                        focus_restored = True
+                        print("DEBUG: Successfully restored focus to original window")
+                    else:
+                        print("DEBUG: Original window handle is no longer valid")
+                except Exception as e:
+                    print(f"DEBUG: Could not restore focus to original window: {e}")
+            
+            if not focus_restored:
+                print("DEBUG: Could not restore original focus, trying alternative method...")
+                try:
+                    # Fallback: try to get the current foreground window (should be the original app)
+                    current_hwnd = win32gui.GetForegroundWindow()
+                    if current_hwnd and current_hwnd != self.original_window_handle:
+                        win32gui.SetForegroundWindow(current_hwnd)
+                        time.sleep(0.2)
+                except Exception as e:
+                    print(f"DEBUG: Fallback focus method failed: {e}")
             
             print("DEBUG: Simulating Ctrl+V...")
             pyautogui.hotkey('ctrl', 'v')
             print("DEBUG: Paste action simulated successfully")
             
             # Wait a bit more to ensure paste completes
-            time.sleep(0.2)
+            time.sleep(0.3)
             
         except Exception as e:
             print(f"DEBUG: Error simulating paste: {e}")
@@ -654,6 +682,7 @@ class TypoFixApp:
              self.floating_widget.destroy()
         self.floating_widget = None
         self.widget_is_hovered = False
+        self.original_window_handle = None
         print("Widget cancelled")
 
     def _detect_language(self, text):
@@ -926,6 +955,7 @@ Rewritten text in {detected_language}:"""
             self.floating_widget = None
         self.widget_timeout_timer = None
         self.widget_is_hovered = False
+        self.original_window_handle = None
 
     def create_tray_icon(self):
         """Create a simple icon for the system tray"""
