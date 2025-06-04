@@ -285,6 +285,7 @@ TypoFix is an intelligent desktop application that automatically detects and cor
 * AI-Powered Corrections: Uses Google's Gemini AI for intelligent typo detection and correction
 * Smart Text Processing: Fix typos or rewrite for better clarity and logic
 * Smart Positioning: Widget appears near your selected text
+* Auto-Close Timer: Widget automatically closes after 4 seconds of inactivity
 * Instant Application: One-click to apply changes and paste corrected text
 * Beautiful UI: Modern, transparent floating buttons with three action options
 * Privacy-Focused: Text is only sent to AI when you choose to process it
@@ -525,6 +526,7 @@ def main():
         print("\n✨ Features of this executable:")
         print("   • No external dependencies required")
         print("   • CTRL+LEFT SHIFT hotkey activation")
+        print("   • Auto-close timer (4 seconds of inactivity)")
         print("   • API key configuration built-in")
         print("   • Completely portable")
         print("   • Three-button widget (Fix/Rewrite/Cancel)")

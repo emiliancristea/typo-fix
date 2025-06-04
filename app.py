@@ -17,7 +17,7 @@ import pystray
 from PIL import Image
 
 class RoundedButton:
-    def __init__(self, parent, text, command, bg_color, hover_color, text_color='white', width=80, height=35, corner_radius=8):
+    def __init__(self, parent, text, command, bg_color, hover_color, text_color='white', width=80, height=35, corner_radius=8, timer_callback=None):
         self.parent = parent
         self.text = text
         self.command = command
@@ -28,6 +28,7 @@ class RoundedButton:
         self.height = height
         self.corner_radius = corner_radius
         self.is_hovered = False
+        self.timer_callback = timer_callback
         
         # Create high-DPI canvas for better quality
         scale_factor = 2  # 2x resolution for better quality
@@ -125,10 +126,14 @@ class RoundedButton:
         return f"#{r:02x}{g:02x}{b:02x}"
     
     def on_click(self, event):
+        if self.timer_callback:
+            self.timer_callback()
         if self.command:
             self.command()
     
     def on_enter(self, event):
+        if self.timer_callback:
+            self.timer_callback()
         self.is_hovered = True
         self.draw_button()
         self.canvas.configure(cursor='hand2')
@@ -168,6 +173,8 @@ class TypoFixApp:
         self.text_to_correct_for_widget = None
         self.simulating_paste = False
         self.selection_rect = None
+        self.widget_timeout_timer = None
+        self.widget_timeout_seconds = 4
 
         # --- System Tray Setup ---
         self.setup_system_tray()
@@ -473,7 +480,8 @@ class TypoFixApp:
             text_color='white',
             width=80,
             height=35,
-            corner_radius=8
+            corner_radius=8,
+            timer_callback=self._restart_widget_timer
         )
         self.fix_button.pack(side='left', padx=(0, 3))
         
@@ -486,7 +494,8 @@ class TypoFixApp:
             text_color='white',
             width=80,
             height=35,
-            corner_radius=8
+            corner_radius=8,
+            timer_callback=self._restart_widget_timer
         )
         self.rewrite_button.pack(side='left', padx=(0, 3))
         
@@ -499,7 +508,8 @@ class TypoFixApp:
             text_color='white',
             width=80,
             height=35,
-            corner_radius=8
+            corner_radius=8,
+            timer_callback=self._restart_widget_timer
         )
         self.cancel_button.pack(side='left')
         
@@ -508,6 +518,15 @@ class TypoFixApp:
         # Bring to front and focus
         self.floating_widget.lift()
         self.floating_widget.focus_force()
+        
+        # Start the auto-close timer
+        self._start_widget_timer()
+        
+        # Bind mouse events to restart timer on interaction
+        self.floating_widget.bind('<Motion>', lambda e: self._restart_widget_timer())
+        self.floating_widget.bind('<Button-1>', lambda e: self._restart_widget_timer())
+        button_frame.bind('<Motion>', lambda e: self._restart_widget_timer())
+        button_frame.bind('<Button-1>', lambda e: self._restart_widget_timer())
 
     def _fix_and_paste(self):
         """Handle the Fix button click"""
@@ -587,6 +606,7 @@ class TypoFixApp:
         """Close widget and simulate paste"""
         print("DEBUG: _close_and_paste() called!")
         
+        self._stop_widget_timer()
         if self.floating_widget:
             print("DEBUG: Destroying widget")
             self.floating_widget.destroy()
@@ -625,6 +645,7 @@ class TypoFixApp:
 
     def _cancel_widget(self):
         """Cancel and close the widget"""
+        self._stop_widget_timer()
         if self.floating_widget:
              self.floating_widget.destroy()
         self.floating_widget = None
@@ -861,6 +882,36 @@ Rewritten text in {detected_language}:"""
             print(f"DEBUG: Unexpected error during API call: {e}")
             return None
 
+    def _start_widget_timer(self):
+        """Start or restart the widget timeout timer"""
+        self._stop_widget_timer()
+        self.widget_timeout_timer = self.root.after(
+            self.widget_timeout_seconds * 1000, 
+            self._auto_close_widget
+        )
+        print(f"DEBUG: Widget timer started - will auto-close in {self.widget_timeout_seconds} seconds")
+
+    def _stop_widget_timer(self):
+        """Stop the widget timeout timer"""
+        if self.widget_timeout_timer:
+            self.root.after_cancel(self.widget_timeout_timer)
+            self.widget_timeout_timer = None
+            print("DEBUG: Widget timer stopped")
+
+    def _restart_widget_timer(self):
+        """Restart the widget timeout timer (called on user interaction)"""
+        if self.floating_widget and self.floating_widget.winfo_exists():
+            self._start_widget_timer()
+            print("DEBUG: Widget timer restarted due to user interaction")
+
+    def _auto_close_widget(self):
+        """Automatically close the widget after timeout"""
+        print("DEBUG: Auto-closing widget due to inactivity timeout")
+        if self.floating_widget and self.floating_widget.winfo_exists():
+            self.floating_widget.destroy()
+            self.floating_widget = None
+        self.widget_timeout_timer = None
+
     def create_tray_icon(self):
         """Create a simple icon for the system tray"""
         # Create a 64x64 icon with a "T" for TypoFix
@@ -957,6 +1008,9 @@ while improving your text."""
         """Quit the application completely"""
         try:
             print("Shutting down TypoFix...")
+            
+            # Stop widget timer
+            self._stop_widget_timer()
             
             # Close floating widget if open
             if self.floating_widget:
