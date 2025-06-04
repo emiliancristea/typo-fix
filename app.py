@@ -177,10 +177,10 @@ class TypoFixApp:
         self.setup_system_tray()
 
         # --- Hotkey Setup ---
-        self.hotkey_combination = {keyboard.Key.ctrl, keyboard.Key.shift_l}  # Ctrl + Left Shift
+        self.hotkey_combination = {keyboard.Key.ctrl, keyboard.Key.alt, keyboard.KeyCode.from_char('t')}  # Ctrl + Alt + T
         self.current_hotkey_keys = set()
         self.start_hotkey_listener()
-        print(f"TypoFix is ready! Highlight text and press CTRL+LEFT SHIFT to correct typos or improve clarity.")
+        print(f"TypoFix is ready! Highlight text and press CTRL+ALT+T to correct typos or improve clarity.")
 
     def get_embedded_api_key(self):
         """Get the embedded API key"""
@@ -312,12 +312,17 @@ class TypoFixApp:
                 self.current_hotkey_keys.add(keyboard.Key.ctrl)
                 print(f"DEBUG: Ctrl key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
-            # Handle Left Shift key detection
-            elif key == keyboard.Key.shift_l:
-                self.current_hotkey_keys.add(keyboard.Key.shift_l)
-                print(f"DEBUG: Left Shift key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            # Handle Alt key detection
+            elif key == keyboard.Key.alt_l or key == keyboard.Key.alt_r or key == keyboard.Key.alt:
+                self.current_hotkey_keys.add(keyboard.Key.alt)
+                print(f"DEBUG: Alt key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
-            # Check if we have the complete hotkey combination (Ctrl + Left Shift)
+            # Handle T key detection
+            elif hasattr(key, 'char') and key.char and key.char.lower() == 't':
+                self.current_hotkey_keys.add(keyboard.KeyCode.from_char('t'))
+                print(f"DEBUG: T key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            
+            # Check if we have the complete hotkey combination (Ctrl + Alt + T)
             if self.hotkey_combination.issubset(self.current_hotkey_keys):
                 print(f"DEBUG: Hotkey combination DETECTED! CurrentSet: {self.current_hotkey_keys}")
                 self._handle_hotkey_action()
@@ -339,11 +344,19 @@ class TypoFixApp:
                 except:
                     pass
             
-            # Handle Left Shift key release
-            elif key == keyboard.Key.shift_l:
+            # Handle Alt key release
+            elif key == keyboard.Key.alt_l or key == keyboard.Key.alt_r or key == keyboard.Key.alt:
                 try:
-                    self.current_hotkey_keys.discard(keyboard.Key.shift_l)
-                    print(f"DEBUG: Left Shift key released. CurrentSet: {self.current_hotkey_keys}")
+                    self.current_hotkey_keys.discard(keyboard.Key.alt)
+                    print(f"DEBUG: Alt key released. CurrentSet: {self.current_hotkey_keys}")
+                except:
+                    pass
+            
+            # Handle T key release
+            elif hasattr(key, 'char') and key.char and key.char.lower() == 't':
+                try:
+                    self.current_hotkey_keys.discard(keyboard.KeyCode.from_char('t'))
+                    print(f"DEBUG: T key released. CurrentSet: {self.current_hotkey_keys}")
                 except:
                     pass
                     
@@ -355,7 +368,7 @@ class TypoFixApp:
             listener.join()
 
     def _handle_hotkey_action(self):
-        print("Ctrl+Left Shift hotkey detected!") 
+        print("Ctrl+Alt+T hotkey detected!") 
         if self.floating_widget: # Prevent multiple widgets if one exists
             print("INFO: Widget already exists. Ignoring hotkey.")
             self.current_hotkey_keys.clear()
@@ -556,15 +569,15 @@ class TypoFixApp:
             
             # Copy corrected text to clipboard
             try:
-                pyperclip.copy(corrected_text)
-                print("DEBUG: Corrected text copied to clipboard.")
-                
-                # Verify clipboard
-                new_clipboard = pyperclip.paste()
-                print(f"DEBUG: New clipboard content: '{new_clipboard}'")
-                
-                # Close widget and paste
-                self._close_and_paste()
+            pyperclip.copy(corrected_text)
+            print("DEBUG: Corrected text copied to clipboard.")
+            
+            # Verify clipboard
+            new_clipboard = pyperclip.paste()
+            print(f"DEBUG: New clipboard content: '{new_clipboard}'")
+            
+            # Close widget and paste
+            self._close_and_paste()
             except Exception as e:
                 print(f"DEBUG: Error copying to clipboard: {e}")
                 self._cancel_widget()
@@ -598,15 +611,15 @@ class TypoFixApp:
             
             # Copy rewritten text to clipboard
             try:
-                pyperclip.copy(rewritten_text)
-                print("DEBUG: Rewritten text copied to clipboard.")
-                
-                # Verify clipboard
-                new_clipboard = pyperclip.paste()
-                print(f"DEBUG: New clipboard content: '{new_clipboard}'")
-                
-                # Close widget and paste
-                self._close_and_paste()
+            pyperclip.copy(rewritten_text)
+            print("DEBUG: Rewritten text copied to clipboard.")
+            
+            # Verify clipboard
+            new_clipboard = pyperclip.paste()
+            print(f"DEBUG: New clipboard content: '{new_clipboard}'")
+            
+            # Close widget and paste
+            self._close_and_paste()
             except Exception as e:
                 print(f"DEBUG: Error copying to clipboard: {e}")
                 self._cancel_widget()
@@ -715,7 +728,7 @@ class TypoFixApp:
                                 for hwnd, title in similar_windows:
                                     try:
                                         print(f"DEBUG: Trying similar window: {hwnd} - '{title}'")
-                                        win32gui.SetForegroundWindow(hwnd)
+                    win32gui.SetForegroundWindow(hwnd)
                                         time.sleep(0.2)
                                         current_foreground = win32gui.GetForegroundWindow()
                                         if current_foreground == hwnd:
@@ -724,7 +737,7 @@ class TypoFixApp:
                                             break
                                     except:
                                         continue
-                        except Exception as e:
+            except Exception as e:
                             print(f"DEBUG: Error in similar window search: {e}")
                     
                     # Final fallback: just try to avoid the terminal
@@ -736,10 +749,16 @@ class TypoFixApp:
                             print(f"DEBUG: Current foreground window: '{current_title}' (class: '{current_class}')")
                             
                             # If current window is a terminal/command prompt, try to find a better target
-                            if any(term in current_class.lower() for term in ['console', 'cmd', 'powershell', 'terminal']):
-                                print("DEBUG: Current window is a terminal, looking for alternative...")
-                                # Don't paste if we're in a terminal - just abort
-                                print("DEBUG: Aborting paste to prevent terminal pasting")
+                            if any(term in current_class.lower() for term in ['console', 'cmd', 'powershell', 'terminal']) or \
+                               any(term in current_title.lower() for term in ['powershell', 'command prompt', 'cmd', 'terminal', 'windows powershell']):
+                                print("DEBUG: Current window is a terminal, aborting paste operation")
+                                print(f"DEBUG: Terminal detected - Class: '{current_class}', Title: '{current_title}'")
+                                # Show a notification that we're not pasting to prevent terminal pasting
+                                try:
+                                    import tkinter.messagebox as msgbox
+                                    msgbox.showwarning("TypoFix", "Cannot paste to terminal window. Please try again in the original application.")
+                                except:
+                                    pass
                                 return
                         except Exception as e:
                             print(f"DEBUG: Error checking current window: {e}")
@@ -1085,7 +1104,7 @@ Rewritten text in {detected_language}:"""
                 pystray.MenuItem("TypoFix - AI Text Correction", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Status: Running", lambda: None, enabled=False),
-                pystray.MenuItem("Usage: Highlight text → Ctrl+Left Shift", lambda: None, enabled=False),
+                pystray.MenuItem("Usage: Highlight text → Ctrl+Alt+T", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Show Instructions", self.show_instructions),
                 pystray.Menu.SEPARATOR,
@@ -1096,7 +1115,7 @@ Rewritten text in {detected_language}:"""
             self.tray_icon = pystray.Icon(
                 "TypoFix",
                 icon_image,
-                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+Left Shift",
+                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+Alt+T",
                 menu
             )
             
@@ -1115,7 +1134,7 @@ Rewritten text in {detected_language}:"""
         instructions = """TypoFix - How to Use:
 
 1. Highlight any text in any application
-2. Press CTRL+LEFT SHIFT to activate TypoFix
+2. Press CTRL+ALT+T to activate TypoFix
 3. A widget will appear with three buttons:
    • ✓ Fix - Corrects typos and spelling
    • 📝 Rewrite - Improves clarity and logic

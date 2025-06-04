@@ -277,7 +277,7 @@ def create_readme():
 
 ## What is TypoFix?
 
-TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you select. Simply highlight text anywhere on your computer, press CTRL+LEFT SHIFT, and TypoFix will offer to fix typos or rewrite text for better clarity using advanced AI technology.
+TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you select. Simply highlight text anywhere on your computer, press CTRL+ALT+T, and TypoFix will offer to fix typos or rewrite text for better clarity using advanced AI technology.
 
 ## Features
 
@@ -297,12 +297,12 @@ TypoFix is an intelligent desktop application that automatically detects and cor
 3. Configure: Create a .env file next to TypoFix.exe with:
    GEMINI_API_KEY=your_api_key_here
 4. Run: Launch TypoFix.exe (it runs in the background)
-5. Use: Highlight text anywhere, press CTRL+LEFT SHIFT, choose "Fix" or "Rewrite"!
+5. Use: Highlight text anywhere, press CTRL+ALT+T, choose "Fix" or "Rewrite"!
 
 ## How to Use
 
 1. Highlight text in any application (browser, Word, email, etc.)
-2. Press CTRL+LEFT SHIFT to activate TypoFix
+2. Press CTRL+ALT+T to activate TypoFix
 3. TypoFix widget appears with three buttons near your selection:
    • ✓ Fix - Corrects typos and spelling errors
    • 📝 Rewrite - Improves clarity and logical flow
@@ -525,7 +525,7 @@ def main():
         print("   📁 dist/TypoFix.exe - Complete application in a single file")
         print("\n✨ Features of this executable:")
         print("   • No external dependencies required")
-        print("   • CTRL+LEFT SHIFT hotkey activation")
+        print("   • CTRL+ALT+T hotkey activation")
         print("   • Auto-close timer (4 seconds of inactivity)")
         print("   • API key configuration built-in")
         print("   • Completely portable")
@@ -533,7 +533,7 @@ def main():
         print("\n💡 Distribution:")
         print("   • Simply share dist/TypoFix.exe")
         print("   • Users just run the .exe file")
-        print("   • Highlight text → press CTRL+LEFT SHIFT → choose action")
+        print("   • Highlight text → press CTRL+ALT+T → choose action")
         print("   • No installation required")
         
     else:
