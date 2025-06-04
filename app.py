@@ -17,7 +17,7 @@ import pystray
 from PIL import Image
 
 class RoundedButton:
-    def __init__(self, parent, text, command, bg_color, hover_color, text_color='white', width=80, height=35, corner_radius=8, timer_callback=None):
+    def __init__(self, parent, text, command, bg_color, hover_color, text_color='white', width=80, height=35, corner_radius=8):
         self.parent = parent
         self.text = text
         self.command = command
@@ -28,7 +28,6 @@ class RoundedButton:
         self.height = height
         self.corner_radius = corner_radius
         self.is_hovered = False
-        self.timer_callback = timer_callback
         
         # Create high-DPI canvas for better quality
         scale_factor = 2  # 2x resolution for better quality
@@ -126,14 +125,10 @@ class RoundedButton:
         return f"#{r:02x}{g:02x}{b:02x}"
     
     def on_click(self, event):
-        if self.timer_callback:
-            self.timer_callback()
         if self.command:
             self.command()
     
     def on_enter(self, event):
-        if self.timer_callback:
-            self.timer_callback()
         self.is_hovered = True
         self.draw_button()
         self.canvas.configure(cursor='hand2')
@@ -175,6 +170,7 @@ class TypoFixApp:
         self.selection_rect = None
         self.widget_timeout_timer = None
         self.widget_timeout_seconds = 4
+        self.widget_is_hovered = False
 
         # --- System Tray Setup ---
         self.setup_system_tray()
@@ -480,8 +476,7 @@ class TypoFixApp:
             text_color='white',
             width=80,
             height=35,
-            corner_radius=8,
-            timer_callback=self._restart_widget_timer
+            corner_radius=8
         )
         self.fix_button.pack(side='left', padx=(0, 3))
         
@@ -494,8 +489,7 @@ class TypoFixApp:
             text_color='white',
             width=80,
             height=35,
-            corner_radius=8,
-            timer_callback=self._restart_widget_timer
+            corner_radius=8
         )
         self.rewrite_button.pack(side='left', padx=(0, 3))
         
@@ -508,8 +502,7 @@ class TypoFixApp:
             text_color='white',
             width=80,
             height=35,
-            corner_radius=8,
-            timer_callback=self._restart_widget_timer
+            corner_radius=8
         )
         self.cancel_button.pack(side='left')
         
@@ -519,18 +512,22 @@ class TypoFixApp:
         self.floating_widget.lift()
         self.floating_widget.focus_force()
         
-        # Start the auto-close timer
-        self._start_widget_timer()
+        # Bind mouse enter/leave events for hover detection
+        self.floating_widget.bind('<Enter>', lambda e: self._on_widget_enter())
+        self.floating_widget.bind('<Leave>', lambda e: self._on_widget_leave())
+        button_frame.bind('<Enter>', lambda e: self._on_widget_enter())
+        button_frame.bind('<Leave>', lambda e: self._on_widget_leave())
         
-        # Bind mouse events to restart timer on interaction
-        self.floating_widget.bind('<Motion>', lambda e: self._restart_widget_timer())
-        self.floating_widget.bind('<Button-1>', lambda e: self._restart_widget_timer())
-        button_frame.bind('<Motion>', lambda e: self._restart_widget_timer())
-        button_frame.bind('<Button-1>', lambda e: self._restart_widget_timer())
+        # Start the auto-close timer (will only start if not hovered)
+        self._start_widget_timer()
 
     def _fix_and_paste(self):
         """Handle the Fix button click"""
         print("DEBUG: _fix_and_paste() called!")
+        
+        # Stop the timer immediately when button is clicked
+        self._stop_widget_timer()
+        
         text_to_correct = self.text_to_correct_for_widget
         print(f"DEBUG: Text to correct: '{text_to_correct}' (length: {len(text_to_correct) if text_to_correct else 0})")
         
@@ -545,22 +542,23 @@ class TypoFixApp:
         corrected_text = self._call_gemini_api_fix(text_to_correct)
         print(f"DEBUG: API returned corrected text: '{corrected_text}'")
 
-        if corrected_text:
+        if corrected_text and corrected_text.strip():
             print(f"DEBUG: Corrected text: '{corrected_text}'")
             
-            # Test clipboard operations
-            old_clipboard = pyperclip.paste()
-            print(f"DEBUG: Old clipboard content: '{old_clipboard}'")
-            
-            pyperclip.copy(corrected_text)
-            print("DEBUG: Corrected text copied to clipboard.")
-            
-            # Verify clipboard
-            new_clipboard = pyperclip.paste()
-            print(f"DEBUG: New clipboard content: '{new_clipboard}'")
-            
-            # Close widget and paste
-            self._close_and_paste()
+            # Copy corrected text to clipboard
+            try:
+                pyperclip.copy(corrected_text)
+                print("DEBUG: Corrected text copied to clipboard.")
+                
+                # Verify clipboard
+                new_clipboard = pyperclip.paste()
+                print(f"DEBUG: New clipboard content: '{new_clipboard}'")
+                
+                # Close widget and paste
+                self._close_and_paste()
+            except Exception as e:
+                print(f"DEBUG: Error copying to clipboard: {e}")
+                self._cancel_widget()
         else:
             print("DEBUG: Failed to correct text - API returned None/empty")
             self._cancel_widget()
@@ -568,6 +566,10 @@ class TypoFixApp:
     def _rewrite_and_paste(self):
         """Handle the Rewrite button click"""
         print("DEBUG: _rewrite_and_paste() called!")
+        
+        # Stop the timer immediately when button is clicked
+        self._stop_widget_timer()
+        
         text_to_rewrite = self.text_to_correct_for_widget
         print(f"DEBUG: Text to rewrite: '{text_to_rewrite}' (length: {len(text_to_rewrite) if text_to_rewrite else 0})")
         
@@ -582,22 +584,23 @@ class TypoFixApp:
         rewritten_text = self._call_gemini_api_rewrite(text_to_rewrite)
         print(f"DEBUG: API returned rewritten text: '{rewritten_text}'")
 
-        if rewritten_text:
+        if rewritten_text and rewritten_text.strip():
             print(f"DEBUG: Rewritten text: '{rewritten_text}'")
             
-            # Test clipboard operations
-            old_clipboard = pyperclip.paste()
-            print(f"DEBUG: Old clipboard content: '{old_clipboard}'")
-            
-            pyperclip.copy(rewritten_text)
-            print("DEBUG: Rewritten text copied to clipboard.")
-            
-            # Verify clipboard
-            new_clipboard = pyperclip.paste()
-            print(f"DEBUG: New clipboard content: '{new_clipboard}'")
-            
-            # Close widget and paste
-            self._close_and_paste()
+            # Copy rewritten text to clipboard
+            try:
+                pyperclip.copy(rewritten_text)
+                print("DEBUG: Rewritten text copied to clipboard.")
+                
+                # Verify clipboard
+                new_clipboard = pyperclip.paste()
+                print(f"DEBUG: New clipboard content: '{new_clipboard}'")
+                
+                # Close widget and paste
+                self._close_and_paste()
+            except Exception as e:
+                print(f"DEBUG: Error copying to clipboard: {e}")
+                self._cancel_widget()
         else:
             print("DEBUG: Failed to rewrite text - API returned None/empty")
             self._cancel_widget()
@@ -611,6 +614,7 @@ class TypoFixApp:
             print("DEBUG: Destroying widget")
             self.floating_widget.destroy()
             self.floating_widget = None
+        self.widget_is_hovered = False
         
         # Add a longer delay and better focus handling
         print("DEBUG: Starting paste simulation")
@@ -649,6 +653,7 @@ class TypoFixApp:
         if self.floating_widget:
              self.floating_widget.destroy()
         self.floating_widget = None
+        self.widget_is_hovered = False
         print("Widget cancelled")
 
     def _detect_language(self, text):
@@ -883,13 +888,16 @@ Rewritten text in {detected_language}:"""
             return None
 
     def _start_widget_timer(self):
-        """Start or restart the widget timeout timer"""
+        """Start the widget timeout timer only if not hovered"""
         self._stop_widget_timer()
-        self.widget_timeout_timer = self.root.after(
-            self.widget_timeout_seconds * 1000, 
-            self._auto_close_widget
-        )
-        print(f"DEBUG: Widget timer started - will auto-close in {self.widget_timeout_seconds} seconds")
+        if not self.widget_is_hovered:
+            self.widget_timeout_timer = self.root.after(
+                self.widget_timeout_seconds * 1000, 
+                self._auto_close_widget
+            )
+            print(f"DEBUG: Widget timer started - will auto-close in {self.widget_timeout_seconds} seconds")
+        else:
+            print("DEBUG: Widget timer not started - widget is being hovered")
 
     def _stop_widget_timer(self):
         """Stop the widget timeout timer"""
@@ -898,11 +906,17 @@ Rewritten text in {detected_language}:"""
             self.widget_timeout_timer = None
             print("DEBUG: Widget timer stopped")
 
-    def _restart_widget_timer(self):
-        """Restart the widget timeout timer (called on user interaction)"""
-        if self.floating_widget and self.floating_widget.winfo_exists():
-            self._start_widget_timer()
-            print("DEBUG: Widget timer restarted due to user interaction")
+    def _on_widget_enter(self):
+        """Called when mouse enters the widget area"""
+        self.widget_is_hovered = True
+        self._stop_widget_timer()
+        print("DEBUG: Mouse entered widget - timer stopped")
+
+    def _on_widget_leave(self):
+        """Called when mouse leaves the widget area"""
+        self.widget_is_hovered = False
+        self._start_widget_timer()
+        print("DEBUG: Mouse left widget - timer started")
 
     def _auto_close_widget(self):
         """Automatically close the widget after timeout"""
@@ -911,6 +925,7 @@ Rewritten text in {detected_language}:"""
             self.floating_widget.destroy()
             self.floating_widget = None
         self.widget_timeout_timer = None
+        self.widget_is_hovered = False
 
     def create_tray_icon(self):
         """Create a simple icon for the system tray"""
