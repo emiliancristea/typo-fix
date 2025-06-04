@@ -2,20 +2,20 @@
 
 ## Build Information
 - **Filename**: TypoFix.exe
-- **File Size**: 18.0 MB (18,905,971 bytes)
-- **Build Date**: 2025-05-25 05:31:06
+- **File Size**: 18.6 MB (19,538,015 bytes)
+- **Build Date**: 2025-06-04 07:29:57
 - **Build Machine**: HAITO
 
 ## File Checksums
 
 ### SHA256
 ```
-84513696191e1bbdb8256ca2391557050852e40aa2056dbe4864cad39e7a02f9
+3aaa0fdaed6ba389d5820945783b2622875b7d99fbac4538c75dcedb48facbf8
 ```
 
 ### MD5
 ```
-d5c689716bb7d66dc0e0b1ced6ce2173
+cbb165f558e166383ce3fa0d94f34034
 ```
 
 ## Verification Instructions

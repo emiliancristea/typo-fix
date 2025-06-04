@@ -173,10 +173,10 @@ class TypoFixApp:
         self.setup_system_tray()
 
         # --- Hotkey Setup ---
-        self.hotkey_combination = {keyboard.Key.ctrl, keyboard.KeyCode.from_char('c')}
+        self.hotkey_combination = {keyboard.Key.shift_l}  # Left Shift key only
         self.current_hotkey_keys = set()
         self.start_hotkey_listener()
-        print(f"TypoFix is ready! Press Ctrl+C after highlighting text to correct typos or improve clarity.")
+        print(f"TypoFix is ready! Highlight text and press LEFT SHIFT to correct typos or improve clarity.")
 
     def get_embedded_api_key(self):
         """Get the embedded API key"""
@@ -299,28 +299,16 @@ class TypoFixApp:
 
     def _on_press(self, key):
         try:
-            # More robust key detection
+            # More robust key detection - ignore all keys when simulating actions
             if hasattr(self, 'simulating_paste') and self.simulating_paste:
                 return
 
-            # Handle Ctrl key detection more robustly
-            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
-                self.current_hotkey_keys.add(keyboard.Key.ctrl)
-                print(f"DEBUG: Ctrl key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            # Handle Left Shift key detection
+            if key == keyboard.Key.shift_l:
+                self.current_hotkey_keys.add(keyboard.Key.shift_l)
+                print(f"DEBUG: Left Shift key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
-            # Handle C key detection
-            elif hasattr(key, 'char') and key.char and key.char.lower() == 'c':
-                self.current_hotkey_keys.add(keyboard.KeyCode.from_char('c'))
-                print(f"DEBUG: C key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
-            
-            # Handle special case for Ctrl+C ETX character
-            elif hasattr(key, 'char') and key.char == '\x03':
-                # ETX character means Ctrl+C was pressed
-                print("DEBUG: ETX character detected - Ctrl+C combination!")
-                self.current_hotkey_keys.add(keyboard.Key.ctrl)
-                self.current_hotkey_keys.add(keyboard.KeyCode.from_char('c'))
-            
-            # Check if we have the complete hotkey combination
+            # Check if we have the complete hotkey combination (just Left Shift)
             if self.hotkey_combination.issubset(self.current_hotkey_keys):
                 print(f"DEBUG: Hotkey combination DETECTED! CurrentSet: {self.current_hotkey_keys}")
                 self._handle_hotkey_action()
@@ -330,22 +318,15 @@ class TypoFixApp:
 
     def _on_release(self, key):
         try:
+            # Ignore all keys when simulating actions
             if hasattr(self, 'simulating_paste') and self.simulating_paste:
                 return
 
-            # Handle Ctrl key release
-            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
+            # Handle Left Shift key release
+            if key == keyboard.Key.shift_l:
                 try:
-                    self.current_hotkey_keys.discard(keyboard.Key.ctrl)
-                    print(f"DEBUG: Ctrl key released. CurrentSet: {self.current_hotkey_keys}")
-                except:
-                    pass
-            
-            # Handle C key release  
-            elif hasattr(key, 'char') and key.char and key.char.lower() == 'c':
-                try:
-                    self.current_hotkey_keys.discard(keyboard.KeyCode.from_char('c'))
-                    print(f"DEBUG: C key released. CurrentSet: {self.current_hotkey_keys}")
+                    self.current_hotkey_keys.discard(keyboard.Key.shift_l)
+                    print(f"DEBUG: Left Shift key released. CurrentSet: {self.current_hotkey_keys}")
                 except:
                     pass
                     
@@ -357,24 +338,32 @@ class TypoFixApp:
             listener.join()
 
     def _handle_hotkey_action(self):
-        print("Ctrl+C hotkey detected!") 
+        print("Left Shift hotkey detected!") 
         if self.floating_widget: # Prevent multiple widgets if one exists
             print("INFO: Widget already exists. Ignoring hotkey.")
             self.current_hotkey_keys.clear()
             return
         
         try:
-            time.sleep(0.2) 
+            # Get text selection position first
+            self.selection_rect = self.get_text_selection_position()
+            
+            # Simulate Ctrl+C to copy any selected text
+            print("Simulating Ctrl+C to copy selected text...")
+            self.simulating_paste = True  # Prevent our listener from interfering
+            pyautogui.hotkey('ctrl', 'c')
+            self.simulating_paste = False
+            
+            # Wait for clipboard to update
+            time.sleep(0.3) 
             copied_text = pyperclip.paste()
             
-            if copied_text:
+            if copied_text and copied_text.strip():
                 print(f"Captured text from clipboard: '{copied_text}'")
                 self.text_to_correct_for_widget = copied_text
-                # Get text selection position before showing widget
-                self.selection_rect = self.get_text_selection_position()
                 self.root.after(0, self._show_floating_correction_widget)
             else:
-                print("No text found on clipboard after copy attempt.")
+                print("No text found on clipboard - please highlight text first.")
 
         except Exception as e:
             print(f"Error in hotkey action: {e}")
@@ -902,7 +891,7 @@ Rewritten text in {detected_language}:"""
                 pystray.MenuItem("TypoFix - AI Text Correction", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Status: Running", lambda: None, enabled=False),
-                pystray.MenuItem("Usage: Highlight text → Ctrl+C", lambda: None, enabled=False),
+                pystray.MenuItem("Usage: Highlight text → Left Shift", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Show Instructions", self.show_instructions),
                 pystray.Menu.SEPARATOR,
@@ -913,7 +902,7 @@ Rewritten text in {detected_language}:"""
             self.tray_icon = pystray.Icon(
                 "TypoFix",
                 icon_image,
-                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+C",
+                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Left Shift",
                 menu
             )
             
@@ -932,7 +921,7 @@ Rewritten text in {detected_language}:"""
         instructions = """TypoFix - How to Use:
 
 1. Highlight any text in any application
-2. Press Ctrl+C to copy the text
+2. Press LEFT SHIFT key to activate TypoFix
 3. A widget will appear with three buttons:
    • ✓ Fix - Corrects typos and spelling
    • 📝 Rewrite - Improves clarity and logic

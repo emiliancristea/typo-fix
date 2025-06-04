@@ -277,16 +277,17 @@ def create_readme():
 
 ## What is TypoFix?
 
-TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you copy. Simply highlight text anywhere on your computer, press Ctrl+C, and TypoFix will offer to fix any typos using advanced AI technology.
+TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you select. Simply highlight text anywhere on your computer, press LEFT SHIFT, and TypoFix will offer to fix typos or rewrite text for better clarity using advanced AI technology.
 
 ## Features
 
 * Global Hotkey Detection: Works in any application - browsers, documents, emails, chat apps
 * AI-Powered Corrections: Uses Google's Gemini AI for intelligent typo detection and correction
+* Smart Text Processing: Fix typos or rewrite for better clarity and logic
 * Smart Positioning: Widget appears near your selected text
-* Instant Correction: One-click to fix and paste corrected text
-* Beautiful UI: Modern, transparent floating buttons
-* Privacy-Focused: Text is only sent to AI when you choose to correct it
+* Instant Application: One-click to apply changes and paste corrected text
+* Beautiful UI: Modern, transparent floating buttons with three action options
+* Privacy-Focused: Text is only sent to AI when you choose to process it
 
 ## Quick Start
 
@@ -295,15 +296,17 @@ TypoFix is an intelligent desktop application that automatically detects and cor
 3. Configure: Create a .env file next to TypoFix.exe with:
    GEMINI_API_KEY=your_api_key_here
 4. Run: Launch TypoFix.exe (it runs in the background)
-5. Use: Highlight text anywhere, press Ctrl+C, click "Fix" to correct typos!
+5. Use: Highlight text anywhere, press LEFT SHIFT, choose "Fix" or "Rewrite"!
 
 ## How to Use
 
 1. Highlight text in any application (browser, Word, email, etc.)
-2. Press Ctrl+C to copy the text
-3. TypoFix widget appears with two buttons near your selection
-4. Click "Fix" to correct typos and automatically paste the corrected text
-5. Click "Cancel" to dismiss without changes
+2. Press LEFT SHIFT key to activate TypoFix
+3. TypoFix widget appears with three buttons near your selection:
+   • ✓ Fix - Corrects typos and spelling errors
+   • 📝 Rewrite - Improves clarity and logical flow
+   • ✗ Cancel - Dismiss without changes
+4. Click your desired action to apply changes automatically
 
 ## System Requirements
 
@@ -521,13 +524,14 @@ def main():
         print("   📁 dist/TypoFix.exe - Complete application in a single file")
         print("\n✨ Features of this executable:")
         print("   • No external dependencies required")
+        print("   • LEFT SHIFT hotkey activation")
         print("   • API key configuration built-in")
         print("   • Completely portable")
-        print("   • Registry-based settings storage")
+        print("   • Three-button widget (Fix/Rewrite/Cancel)")
         print("\n💡 Distribution:")
         print("   • Simply share dist/TypoFix.exe")
         print("   • Users just run the .exe file")
-        print("   • First-run setup guides them through API key configuration")
+        print("   • Highlight text → press LEFT SHIFT → choose action")
         print("   • No installation required")
         
     else:
