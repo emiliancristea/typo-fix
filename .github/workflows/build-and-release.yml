@@ -1,0 +1,85 @@
+name: Build and Release TypoFix
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.3.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Build executable
+      run: |
+        python build_exe.py
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: TypoFix-executable
+        path: |
+          dist/TypoFix.exe
+          TypoFix_checksums.txt
+          README.txt
+          install.bat
+          
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/TypoFix.exe
+          TypoFix_checksums.txt
+          README.txt
+          install.bat
+        body: |
+          ## TypoFix ${{ github.ref_name }}
+          
+          **What's Changed:**
+          - 🔧 Simplified hotkey: Use **Shift+C** to activate TypoFix
+          - 🚀 Embedded API key - No setup required
+          - ✨ Smart widget positioning
+          - 🎯 Works in any application
+          
+          **How to Use:**
+          1. Download `TypoFix.exe` 
+          2. Run the executable (it runs in background)
+          3. Highlight any text in any app
+          4. Press **Shift+C** 
+          5. Choose Fix/Rewrite/Cancel
+          
+          **Files:**
+          - `TypoFix.exe` - Main application (single file, no installation needed)
+          - `install.bat` - Optional installer for system-wide installation
+          - `README.txt` - Full usage instructions
+          - `TypoFix_checksums.txt` - File verification hashes
+          
+          **System Requirements:**
+          - Windows 10 or later
+          - Internet connection for AI corrections
+          
+          ---
+          
+          🔒 **Security:** Always verify file integrity using the checksums provided.
+          
+          **Quick Start:** Just download and run `TypoFix.exe` - that's it! 🎉
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

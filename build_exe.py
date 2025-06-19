@@ -113,8 +113,8 @@ def create_version_info():
 # http://msdn.microsoft.com/en-us/library/ms646997.aspx
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1,0,0,0),
-    prodvers=(1,0,0,0),
+    filevers=(1,3,0,0),
+    prodvers=(1,3,0,0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -129,12 +129,12 @@ VSVersionInfo(
         u'040904B0',
         [StringStruct(u'CompanyName', u'TypoFix'),
         StringStruct(u'FileDescription', u'AI-Powered Typo Correction Tool'),
-        StringStruct(u'FileVersion', u'1.0.0.0'),
+        StringStruct(u'FileVersion', u'1.3.0.0'),
         StringStruct(u'InternalName', u'TypoFix'),
         StringStruct(u'LegalCopyright', u'Copyright (C) 2025'),
         StringStruct(u'OriginalFilename', u'TypoFix.exe'),
         StringStruct(u'ProductName', u'TypoFix - AI Typo Corrector'),
-        StringStruct(u'ProductVersion', u'1.0.0.0')])
+        StringStruct(u'ProductVersion', u'1.3.0.0')])
       ]), 
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]
@@ -255,10 +255,11 @@ echo TypoFix has been installed to: %INSTALL_DIR%
 echo Desktop shortcut created.
 echo Start menu entry created.
 echo.
-echo IMPORTANT: You need to set up your Gemini API key:
-echo 1. Get an API key from: https://makersuite.google.com/app/apikey
-echo 2. Create a .env file in %INSTALL_DIR% with:
-echo    GEMINI_API_KEY=your_api_key_here
+echo How to Use:
+echo 1. TypoFix is now running in the background
+echo 2. Highlight any text in any application
+echo 3. Press SHIFT+C to activate TypoFix
+echo 4. Choose Fix or Rewrite from the widget
 echo.
 echo Press any key to finish...
 pause >nul
@@ -277,7 +278,7 @@ def create_readme():
 
 ## What is TypoFix?
 
-TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you select. Simply highlight text anywhere on your computer, press CTRL+ALT+T, and TypoFix will offer to fix typos or rewrite text for better clarity using advanced AI technology.
+TypoFix is an intelligent desktop application that automatically detects and corrects typos in any text you select. Simply highlight text anywhere on your computer, press SHIFT+C, and TypoFix will offer to fix typos or rewrite text for better clarity using advanced AI technology.
 
 ## Features
 
@@ -293,16 +294,13 @@ TypoFix is an intelligent desktop application that automatically detects and cor
 ## Quick Start
 
 1. Install: Run the installer or place TypoFix.exe in your desired location
-2. Setup API Key: Get a free API key from https://makersuite.google.com/app/apikey
-3. Configure: Create a .env file next to TypoFix.exe with:
-   GEMINI_API_KEY=your_api_key_here
-4. Run: Launch TypoFix.exe (it runs in the background)
-5. Use: Highlight text anywhere, press CTRL+ALT+T, choose "Fix" or "Rewrite"!
+2. Run: Launch TypoFix.exe (it runs in the background)
+3. Use: Highlight text anywhere, press SHIFT+C, choose "Fix" or "Rewrite"!
 
 ## How to Use
 
 1. Highlight text in any application (browser, Word, email, etc.)
-2. Press CTRL+ALT+T to activate TypoFix
+2. Press SHIFT+C to activate TypoFix
 3. TypoFix widget appears with three buttons near your selection:
    • ✓ Fix - Corrects typos and spelling errors
    • 📝 Rewrite - Improves clarity and logical flow
@@ -313,14 +311,6 @@ TypoFix is an intelligent desktop application that automatically detects and cor
 
 - Windows 10 or later
 - Internet connection (for AI corrections)
-- Gemini API key (free from Google)
-
-## Getting Your API Key
-
-1. Visit: https://makersuite.google.com/app/apikey
-2. Sign in with your Google account
-3. Click "Create API Key"
-4. Copy the key and add it to your .env file
 
 ## Troubleshooting
 
@@ -330,7 +320,6 @@ Widget doesn't appear?
 - Check if antivirus is blocking the app
 
 API errors?
-- Verify your API key is correct in the .env file
 - Check your internet connection
 - Ensure you have Gemini API quota available
 
@@ -342,9 +331,9 @@ Can't install?
 
 For issues or questions, please check the project documentation or contact support.
 
-## Version 1.0.0
+## Version 1.3.0
 
-Initial release with core typo correction functionality.
+Updated release with simplified Shift+C hotkey and embedded API key.
 '''
     
     with open('README.txt', 'w', encoding='utf-8') as f:
@@ -422,7 +411,7 @@ def generate_checksums(exe_path):
         build_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Create checksum file content
-        checksum_content = f"""# TypoFix v1.2.0 - File Verification
+        checksum_content = f"""# TypoFix v1.3.0 - File Verification
 
 ## Build Information
 - **Filename**: TypoFix.exe
@@ -477,7 +466,7 @@ The calculated hashes should **exactly match** the values above.
 This build includes:
 - ✅ Embedded Google Gemini API key for immediate use
 - ✅ Complete standalone executable (no dependencies)
-- ✅ Global hotkey support (Ctrl+C)
+- ✅ Global hotkey support (Shift+C)
 - ✅ Multi-language text correction
 - ✅ Smart widget positioning
 - ✅ System tray integration
@@ -525,15 +514,15 @@ def main():
         print("   📁 dist/TypoFix.exe - Complete application in a single file")
         print("\n✨ Features of this executable:")
         print("   • No external dependencies required")
-        print("   • CTRL+ALT+T hotkey activation")
+        print("   • SHIFT+C hotkey activation")
         print("   • Auto-close timer (4 seconds of inactivity)")
-        print("   • API key configuration built-in")
+        print("   • API key embedded - no setup required")
         print("   • Completely portable")
         print("   • Three-button widget (Fix/Rewrite/Cancel)")
         print("\n💡 Distribution:")
         print("   • Simply share dist/TypoFix.exe")
         print("   • Users just run the .exe file")
-        print("   • Highlight text → press CTRL+ALT+T → choose action")
+        print("   • Highlight text → press SHIFT+C → choose action")
         print("   • No installation required")
         
     else:
