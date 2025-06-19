@@ -178,9 +178,10 @@ class TypoFixApp:
 
         # --- Hotkey Setup ---
         self.hotkey_combination = {keyboard.Key.ctrl, keyboard.Key.alt, keyboard.KeyCode.from_char('t')}  # Ctrl + Alt + T
+        self.shift_c_combination = {keyboard.Key.shift, keyboard.KeyCode.from_char('c')}  # Shift + C
         self.current_hotkey_keys = set()
         self.start_hotkey_listener()
-        print(f"TypoFix is ready! Highlight text and press CTRL+ALT+T to correct typos or improve clarity.")
+        print(f"TypoFix is ready! Highlight text and press CTRL+ALT+T or SHIFT+C to correct typos or improve clarity.")
 
     def get_embedded_api_key(self):
         """Get the embedded API key"""
@@ -317,14 +318,26 @@ class TypoFixApp:
                 self.current_hotkey_keys.add(keyboard.Key.alt)
                 print(f"DEBUG: Alt key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
+            # Handle Shift key detection
+            elif key == keyboard.Key.shift_l or key == keyboard.Key.shift_r or key == keyboard.Key.shift:
+                self.current_hotkey_keys.add(keyboard.Key.shift)
+                print(f"DEBUG: Shift key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            
             # Handle T key detection
             elif hasattr(key, 'char') and key.char and key.char.lower() == 't':
                 self.current_hotkey_keys.add(keyboard.KeyCode.from_char('t'))
                 print(f"DEBUG: T key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
             
-            # Check if we have the complete hotkey combination (Ctrl + Alt + T)
-            if self.hotkey_combination.issubset(self.current_hotkey_keys):
-                print(f"DEBUG: Hotkey combination DETECTED! CurrentSet: {self.current_hotkey_keys}")
+            # Handle C key detection
+            elif hasattr(key, 'char') and key.char and key.char.lower() == 'c':
+                self.current_hotkey_keys.add(keyboard.KeyCode.from_char('c'))
+                print(f"DEBUG: C key detected and added to set. CurrentSet: {self.current_hotkey_keys}")
+            
+            # Check if we have the complete hotkey combination (Ctrl + Alt + T) or (Shift + C)
+            if (self.hotkey_combination.issubset(self.current_hotkey_keys) or 
+                self.shift_c_combination.issubset(self.current_hotkey_keys)):
+                combination_name = "Ctrl+Alt+T" if self.hotkey_combination.issubset(self.current_hotkey_keys) else "Shift+C"
+                print(f"DEBUG: {combination_name} hotkey combination DETECTED! CurrentSet: {self.current_hotkey_keys}")
                 self._handle_hotkey_action()
                 
         except Exception as e:
@@ -352,11 +365,27 @@ class TypoFixApp:
                 except:
                     pass
             
+            # Handle Shift key release
+            elif key == keyboard.Key.shift_l or key == keyboard.Key.shift_r or key == keyboard.Key.shift:
+                try:
+                    self.current_hotkey_keys.discard(keyboard.Key.shift)
+                    print(f"DEBUG: Shift key released. CurrentSet: {self.current_hotkey_keys}")
+                except:
+                    pass
+            
             # Handle T key release
             elif hasattr(key, 'char') and key.char and key.char.lower() == 't':
                 try:
                     self.current_hotkey_keys.discard(keyboard.KeyCode.from_char('t'))
                     print(f"DEBUG: T key released. CurrentSet: {self.current_hotkey_keys}")
+                except:
+                    pass
+            
+            # Handle C key release
+            elif hasattr(key, 'char') and key.char and key.char.lower() == 'c':
+                try:
+                    self.current_hotkey_keys.discard(keyboard.KeyCode.from_char('c'))
+                    print(f"DEBUG: C key released. CurrentSet: {self.current_hotkey_keys}")
                 except:
                     pass
                     
@@ -368,7 +397,7 @@ class TypoFixApp:
             listener.join()
 
     def _handle_hotkey_action(self):
-        print("Ctrl+Alt+T hotkey detected!") 
+        print("Hotkey detected (Ctrl+Alt+T or Shift+C)!") 
         if self.floating_widget: # Prevent multiple widgets if one exists
             print("INFO: Widget already exists. Ignoring hotkey.")
             self.current_hotkey_keys.clear()
@@ -1104,7 +1133,7 @@ Rewritten text in {detected_language}:"""
                 pystray.MenuItem("TypoFix - AI Text Correction", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Status: Running", lambda: None, enabled=False),
-                pystray.MenuItem("Usage: Highlight text → Ctrl+Alt+T", lambda: None, enabled=False),
+                pystray.MenuItem("Usage: Highlight text → Ctrl+Alt+T or Shift+C", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Show Instructions", self.show_instructions),
                 pystray.Menu.SEPARATOR,
@@ -1115,7 +1144,7 @@ Rewritten text in {detected_language}:"""
             self.tray_icon = pystray.Icon(
                 "TypoFix",
                 icon_image,
-                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+Alt+T",
+                "TypoFix - AI Text Correction Tool\nRunning in background\nHighlight text → Ctrl+Alt+T or Shift+C",
                 menu
             )
             
@@ -1134,7 +1163,7 @@ Rewritten text in {detected_language}:"""
         instructions = """TypoFix - How to Use:
 
 1. Highlight any text in any application
-2. Press CTRL+ALT+T to activate TypoFix
+2. Press CTRL+ALT+T or SHIFT+C to activate TypoFix
 3. A widget will appear with three buttons:
    • ✓ Fix - Corrects typos and spelling
    • 📝 Rewrite - Improves clarity and logic
